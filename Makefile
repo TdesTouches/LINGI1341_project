@@ -1,6 +1,6 @@
 CC = gcc
 
-CFLAGS  = -Werror
+# CFLAGS  = -Werror
 CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -Wshadow
@@ -10,8 +10,8 @@ LDFLAGS = -lz
 
 EXEC = packet
 
-SENDER_SRC = src/sender.c src/pkt.c
-RECEIVER_SRC = src/receiver.c src/pkt.c
+SENDER_SRC = src/sender.c src/pkt.c src/network.c
+RECEIVER_SRC = src/receiver.c src/pkt.c src/network.c
 
 
 all : clean sender receiver
