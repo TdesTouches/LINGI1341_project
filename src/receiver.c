@@ -22,6 +22,9 @@ int main(int argc, char** argv){
 
 	address = argv[optind++];
 	port = (uint16_t) atoi(argv[optind++]);
+	if(optind < argc){
+		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
+	}
 
 	fprintf(stderr, "%s\n", address);
 	fprintf(stderr, "%d\n", port);
