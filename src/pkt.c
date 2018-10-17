@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <zlib.h>
 #include <netinet/in.h>
+#include <time.h>
 /* Your code will be inserted here */
 
 
@@ -267,4 +268,15 @@ pkt_status_code pkt_set_payload(pkt_t *pkt,
 	}
 	memcpy(pkt->payload, data, length);
 	return PKT_OK;
+}
+
+pkt_status_code pkt_update_timestamp(pkt_t* pkt){
+	uint32_t timestamp = (uint32_t) time(NULL);
+	pkt_status_code status = pkt_set_timestamp(pkt, timestamp);
+	if(status != PKT_OK){
+		return status;
+	}
+
+	status = pkt_set_crc1(pkt, pkt_get_crc1(pkt));
+	return status;
 }

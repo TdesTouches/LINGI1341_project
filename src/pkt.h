@@ -121,4 +121,11 @@ pkt_status_code pkt_set_payload(pkt_t*,
  */
 pkt_status_code pkt_set_crc2(pkt_t*, const uint32_t crc2);
 
+/* Updaate the timestamp of the pkt and compute the crc2 again
+   Timestamp is the actual epoch time returned by time()
+   This function is to be called just before the packet is send
+ */
+pkt_status_code pkt_update_timestamp(pkt_t*);
+
 #endif  /* __PACKET_INTERFACE_H_ */
+
