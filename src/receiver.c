@@ -1,16 +1,33 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "pkt.h"
 
 #include "receiver.h"
 
 int main(int argc, char** argv){
-	if(argc==1){
-		fprintf(stderr, "Name of the program : %s\n", argv[0]);
+	// -------------------------------------------------------------------------
+	// ---------------------- parsing input arguments --------------------------
+	// -------------------------------------------------------------------------
+	if(argc < 3){
+		fprintf(stderr, "Usage:\n");
+		fprintf(stderr, "receiver <hostname> <port>\n");
+		exit(0);
 	}
 
-	pkt_t *pkt = pkt_new();
-	pkt_del(pkt);
-	printf("Hello world from receiver\n");
+	char *address;
+	uint16_t port;
+
+	extern int optind;
+
+	address = argv[optind++];
+	port = (uint16_t) atoi(argv[optind++]);
+
+	fprintf(stderr, "%s\n", address);
+	fprintf(stderr, "%d\n", port);
+
+	// -------------------------------------------------------------------------
+
+
 	return 0;
 }

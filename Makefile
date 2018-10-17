@@ -16,6 +16,8 @@ RECEIVER_SRC = src/receiver.c src/pkt.c
 
 all : clean sender receiver
 
+bitch: sender receiver
+
 sender :
 	$(CC) $(CFLAGS) $(SENDER_SRC) -o sender $(LDFLAGS)
 
