@@ -3,6 +3,7 @@ sender
 receiver
 *.zip
 *.log
+*.stat
 
 # Prerequisites
 *.d
