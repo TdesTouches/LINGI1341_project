@@ -10,8 +10,8 @@ LDFLAGS = -lz
 
 EXEC = packet
 
-SENDER_SRC = src/sender.c src/pkt.c src/network.c
-RECEIVER_SRC = src/receiver.c src/pkt.c src/network.c
+SENDER_SRC = src/sender.c src/pkt.c src/network.c src/utils.h
+RECEIVER_SRC = src/receiver.c src/pkt.c src/network.c src/utils.h
 
 
 all : clean sender receiver
