@@ -280,3 +280,41 @@ pkt_status_code pkt_update_timestamp(pkt_t* pkt){
 	status = pkt_set_crc1(pkt, pkt_get_crc1(pkt));
 	return status;
 }
+
+const char* pkt_get_error(pkt_status_code status){
+	switch(status){
+		case(PKT_OK):
+			return "PKT_OK";
+			break;
+		case(E_TYPE):
+			return "E_TYPE";
+			break;
+		case(E_TR):
+			return "E_TR";
+			break;
+		case(E_LENGTH):
+			return "E_LENGTH";
+			break;
+		case(E_CRC):
+			return "E_CRC";
+			break;
+		case(E_WINDOW):
+			return "E_WINDOW";
+			break;
+		case(E_SEQNUM):
+			return "E_SEQNUM";
+			break;
+		case(E_NOMEM):
+			return "E_NOMEM";
+			break;
+		case(E_NOHEADER):
+			return "E_NOHEADER";
+			break;
+		case(E_UNCONSISTENT):
+			return "E_UNCONSISTENT";
+			break;
+		default:
+			return "Unknown status code";
+			break;
+	}
+}

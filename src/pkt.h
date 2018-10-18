@@ -19,6 +19,8 @@ typedef enum {
 /* Taille maximale de Window */
 #define MAX_WINDOW_SIZE 31
 
+#define MAX_PACKET_SIZE 528
+
 /* Valeur de retours des fonctions */
 typedef enum {
 	PKT_OK = 0,     /* Le paquet a ete traite avec succes */
@@ -32,6 +34,9 @@ typedef enum {
 	E_NOHEADER,     /* Le paquet n'a pas de header (trop court) */
 	E_UNCONSISTENT, /* Le paquet est incoherent */
 } pkt_status_code;
+
+uint32_t pkt_gen_crc2(const pkt_t *pkt);
+uint32_t pkt_gen_crc1(const pkt_t *pkt);
 
 /* Alloue et initialise une struct pkt
  * @return: NULL en cas d'erreur */
@@ -126,6 +131,9 @@ pkt_status_code pkt_set_crc2(pkt_t*, const uint32_t crc2);
    This function is to be called just before the packet is send
  */
 pkt_status_code pkt_update_timestamp(pkt_t*);
+
+
+const char* pkt_get_error(pkt_status_code status);
 
 #endif  /* __PACKET_INTERFACE_H_ */
 
