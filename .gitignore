@@ -1,7 +1,8 @@
 #
 sender
 receiver
-
+*.zip
+*.log
 
 # Prerequisites
 *.d
