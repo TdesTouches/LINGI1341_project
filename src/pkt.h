@@ -132,6 +132,15 @@ pkt_status_code pkt_set_crc2(pkt_t*, const uint32_t crc2);
  */
 pkt_status_code pkt_update_timestamp(pkt_t*);
 
+/* Compare the timestamp of the two input packet
+ * return 1 if both timestamps are equals
+ * return 0 otherwise
+ */
+int pkt_compare_timestamp(pkt_t* pkt1, pkt_t* pkt2);
+
+int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT);
+
+pkt_status_code pkt_create(pkt_t* pkt, uint8_t seqnum, ptypes_t type);
 
 const char* pkt_get_error(pkt_status_code status);
 

@@ -6,9 +6,8 @@
 #include <stdio.h>
 #include <zlib.h>
 #include <netinet/in.h>
-#include <time.h>
-/* Your code will be inserted here */
 
+#include "utils.h"
 
 struct __attribute__((__packed__)) pkt {
 	struct header{
@@ -23,14 +22,6 @@ struct __attribute__((__packed__)) pkt {
 	char *payload;
 	uint32_t crc2; //
 };
-
-// int main(){
-// 	pkt_t* pkt = pkt_new();
-// 	fprintf(stderr, "sizeof pkt_t : %ld \n", sizeof(pkt_t));
-// 	fprintf(stderr, "sizeof payload : %ld\n", sizeof(pkt->payload));
-// 	// fprintf(stderr, "sizeof pkt_t : \n", sizeof(pkt_t));
-// 	return 0;
-// }
 
 uint32_t pkt_gen_crc2(const pkt_t *pkt){
 	fprintf(stderr, "Generate crc2\n");
@@ -271,7 +262,7 @@ pkt_status_code pkt_set_payload(pkt_t *pkt,
 }
 
 pkt_status_code pkt_update_timestamp(pkt_t* pkt){
-	uint32_t timestamp = (uint32_t) time(NULL);
+	uint32_t timestamp = get_time();
 	pkt_status_code status = pkt_set_timestamp(pkt, timestamp);
 	if(status != PKT_OK){
 		return status;
@@ -279,6 +270,34 @@ pkt_status_code pkt_update_timestamp(pkt_t* pkt){
 
 	status = pkt_set_crc1(pkt, pkt_get_crc1(pkt));
 	return status;
+}
+
+int pkt_compare_timestamp(pkt_t* pkt1, pkt_t* pkt2){
+	uint32_t ts1 = pkt_get_timestamp(pkt1);
+	uint32_t ts2 = pkt_get_timestamp(pkt2);
+	return ts1==ts2;
+}
+
+int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
+	uint32_t ts = pkt_get_timestamp(pkt);
+	uint32_t ct = get_time();
+	return ct - ts > RTT;
+}
+
+
+pkt_status_code pkt_create(pkt_t* pkt, uint8_t seqnum, ptypes_t type){
+	if(type != PTYPE_ACK || type != PTYPE_NACK){
+		fprintf(stderr, "Bad use of pkt_create function (only ack or nack)\n");
+		exit(-1);
+	}
+	pkt_set_type(pkt, type);
+	pkt_set_tr(pkt, 0);
+	pkt_set_payload(pkt, NULL, 0);
+	pkt_set_seqnum(pkt, seqnum);
+	pkt_set_timestamp(pkt, get_time());
+	pkt_set_crc1(pkt, pkt_gen_crc1(pkt));
+	pkt_set_crc2(pkt, pkt_gen_crc2(pkt));
+	return PKT_OK;
 }
 
 const char* pkt_get_error(pkt_status_code status){
