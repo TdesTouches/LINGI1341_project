@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/timeb.h>
 
 
 #include "pkt.h"
@@ -73,7 +74,7 @@ int main(int argc, char** argv){
 	// --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  -
 	// input :
 	// 	- char* host
-	// 	- uint16_t portddr_in6 addr;
+	// 	- uint16_t port;
 	// output
 	// 	- int sfd
 	// 	- sockaddr_in6 addr;
@@ -87,7 +88,7 @@ int main(int argc, char** argv){
 
 	int sfd = create_socket(&addr, port, NULL, -1);
 	if(sfd > 0 && wait_for_client(sfd) < 0){
-		fprintf(stderr, "Could not connect to client after the first message\n");
+		fprintf(stderr, "Could not connect to client after the fist message\n");
 		close(sfd);
 		return EXIT_FAILURE;
 	}
@@ -146,38 +147,69 @@ void read_write_loop(FILE* f, int sfd){
 	uint8_t seqnum = 0;
 	pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
+	uint32_t nb_packet = tot_nb_packet(f);
+	int first_packet = 1;
 	sliding_window[0] = create_next_pkt(f, seqnum, window);
 
-	struct pollfd fds; // see man poll
-	fds.fd = sfd; // file descriptor
-	fds.events = POLLOUT; // writing on socket
+	struct pollfd fds[2]; // see man poll
+	fds[0].fd = sfd; // file descriptor
+	fds[0].events = POLLOUT; // writing on socket
+	fds[1].fd = sfd;
+	fds[1].events = POLLIN;
 	int timeout = 0;
 
 	char buf[MAX_PACKET_SIZE];
 
-	while(1){ // while sending packets
+	int read_size, write_size; // read and write size on the socket
+	pkt_status_code status;
+
+
+	// uint32_t ct = get_time(); // time in millisec
+	uint32_t RTT = 1000; // rtt in millisec
+
+	while(seqnum < nb_packet){ // while sending packets
 
 		// send packets
-		int ready = poll(&fds, 1, timeout);
+		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
 			fprintf(stderr, "Error while poll : %s\n", strerror(errno));
 		}
 
-		if(ready==1){ // ready to write on the only socket 
-			pkt_update_timestamp(sliding_window[0]);
+		if(fds[0].revents == POLLOUT){ // ready to write on the socket
+			if(first_packet || pkt_timestamp_outdated(sliding_window[0], RTT)){
+				first_packet = 0;
+				pkt_update_timestamp(sliding_window[0]);
 
-			uint16_t len = MAX_PACKET_SIZE;
-			pkt_status_code status = pkt_encode(sliding_window[0], 
-												buf, 
-												&len);
-			if(status != PKT_OK){
-				fprintf(stderr, "Encoding error : %s\n", pkt_get_error(status));
+				size_t len = MAX_PACKET_SIZE;
+				status = pkt_encode(sliding_window[0], buf,	&len);
+				if(status != PKT_OK){
+					fprintf(stderr, "Encoding error : %s\n", pkt_get_error(status));
+				}
+
+				write_size = (int) write(sfd, (void*) buf, len);
+				if(write_size != (int) len){
+					fprintf(stderr, "Writing the socket was incomplete\n");
+				}
 			}
-
 		}
 
-		// receive packets and check acks
+		// buf = memset(buf, 0, MAX_PACKET_SIZE);
+		// receive packets and check acks, move s_window if necessary
+		if(fds[1].revents == POLLIN){ // ready to read data on socket
+			read_size = (int) read(sfd, (void*) buf, sizeof(buf));
+			pkt_t *pkt = pkt_new();
+			status = pkt_decode(buf, read_size, pkt);
+			if(status != PKT_OK){
+				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
+			}else{
+				// compare timestamp with the sliding window elements
+				if(pkt_compare_timestamp(pkt, sliding_window[0])){
+					slide_array(sliding_window, MAX_WINDOW_SIZE);
+					seqnum++;
+				}
+			}
+		}
 
-		// move sliding window
-	}
+
+	}// while sending packet
 }
