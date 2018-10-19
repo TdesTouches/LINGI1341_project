@@ -285,12 +285,16 @@ int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
 }
 
 
-pkt_status_code pkt_create(pkt_t* pkt, uint8_t seqnum, ptypes_t type){
+pkt_status_code pkt_create(	pkt_t* pkt,
+							uint8_t seqnum,
+							uint8_t window,
+							ptypes_t type){
 	if(type != PTYPE_ACK || type != PTYPE_NACK){
 		fprintf(stderr, "Bad use of pkt_create function (only ack or nack)\n");
 		exit(-1);
 	}
 	pkt_set_type(pkt, type);
+	pkt_set_window(pkt, window);
 	pkt_set_tr(pkt, 0);
 	pkt_set_payload(pkt, NULL, 0);
 	pkt_set_seqnum(pkt, seqnum);
@@ -335,5 +339,12 @@ const char* pkt_get_error(pkt_status_code status){
 		default:
 			return "Unknown status code";
 			break;
+	}
+}
+
+
+void pkt_check_error(const char* msg, pkt_status_code status){
+	if(status != PKT_OK){
+		fprintf(stderr, "%s : %s\n", msg, pkt_get_error(status));
 	}
 }

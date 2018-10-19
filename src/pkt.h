@@ -140,9 +140,14 @@ int pkt_compare_timestamp(pkt_t* pkt1, pkt_t* pkt2);
 
 int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT);
 
-pkt_status_code pkt_create(pkt_t* pkt, uint8_t seqnum, ptypes_t type);
+pkt_status_code pkt_create(	pkt_t* pkt, 
+							uint8_t seqnum, 
+							uint8_t window,
+							ptypes_t type);
 
 const char* pkt_get_error(pkt_status_code status);
+
+void pkt_check_error(const char* msg, pkt_status_code status);
 
 #endif  /* __PACKET_INTERFACE_H_ */
 
