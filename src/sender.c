@@ -63,9 +63,6 @@ int main(int argc, char** argv){
 		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
 	}
 
-	fprintf(stderr, "%s\n", host);
-	fprintf(stderr, "%d\n", port);
-
 
 	// -------------------------------------------------------------------------
 
@@ -86,12 +83,13 @@ int main(int argc, char** argv){
 		return EXIT_FAILURE;
 	}
 
-	int sfd = create_socket(&addr, port, NULL, -1);
-	if(sfd > 0 && wait_for_client(sfd) < 0){
-		fprintf(stderr, "Could not connect to client after the fist message\n");
-		close(sfd);
-		return EXIT_FAILURE;
-	}
+	// int sfd = create_socket(&addr, port, NULL, -1);
+	int sfd = create_socket(NULL, -1, &addr, port); /* Connected */
+	// if(sfd > 0 && wait_for_client(sfd) < 0){
+	// 	fprintf(stderr, "Could not connect to client after the fist message\n");
+	// 	close(sfd);
+	// 	return EXIT_FAILURE;
+	// }
 	if (sfd < 0) {
 		fprintf(stderr, "Failed to create the socket!\n");
 		return EXIT_FAILURE;
@@ -106,6 +104,7 @@ int main(int argc, char** argv){
 	// 	- int sfd
 	// 	- FILE* input OR stdin_fileno // if file==NULL
 	// output : 
+	fprintf(stderr, "Entering read write loop\n");
 	read_write_loop(input, sfd);
 
 	// -------------------------------------------------------------------------
