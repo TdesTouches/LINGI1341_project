@@ -16,8 +16,6 @@ RECEIVER_SRC = src/receiver.c src/pkt.c src/network.c src/utils.c
 
 all : clean sender receiver
 
-bitch: sender receiver
-
 sender :
 	$(CC) $(CFLAGS) $(SENDER_SRC) -o sender $(LDFLAGS)
 
@@ -28,8 +26,8 @@ receiver :
 .PHONY: clean gitlog
 
 clean :
-	rm sender
-	rm receiver
+	rm -f sender
+	rm -f receiver
 
 archive : gitlog
 	zip archive -r "src/" "tests/" "rapport.pdf" "gitlog.stat" -x sender receiver > zip.log
