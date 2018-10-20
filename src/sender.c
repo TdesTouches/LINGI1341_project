@@ -1,3 +1,10 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #include <stdio.h>
 #include <unistd.h> // getopt
 #include <stdlib.h> // exit
@@ -132,14 +139,15 @@ pkt_status_code create_next_pkt(pkt_t* pkt,
 		size_t n_bytes = fread(buf, 1, MAX_PAYLOAD_SIZE, f);
 		pkt_set_payload(pkt, buf, n_bytes);
 		free(buf);
-		return PKT_OK;
 	}else{
 		// last packet
 		pkt_set_payload(pkt, NULL, 0);
-		return PKT_OK;
 	}
-	pkt_update_timestamp(pkt);
+
+	pkt_set_timestamp(pkt, 0); // 0 so that timestamp is outdated 
+	pkt_set_crc1(pkt, pkt_gen_crc1(pkt));
 	pkt_set_crc2(pkt, pkt_gen_crc2(pkt));
+	return PKT_OK;
 }
 
 
@@ -167,11 +175,11 @@ void read_write_loop(FILE* f, int sfd){
 	pkt_status_code status;
 
 
-	// uint32_t ct = get_time(); // time in millisec
-	uint32_t RTT = 250; // rtt in millisec
+	// uint32_t ct = get_time(); // time in sec
+	uint32_t RTT = 1000; // rtt in millisec
 
+	// <= because the last packet send is an PDATA with no data inside
 	while(seqnum <= nb_packet){ // while sending packets
-
 		// send packets
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
@@ -179,14 +187,15 @@ void read_write_loop(FILE* f, int sfd){
 		}
 
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			if(first_packet || pkt_timestamp_outdated(pkt_to_send, RTT)){
+			if(pkt_timestamp_outdated(pkt_to_send, RTT) || first_packet){
 				first_packet = 0;
 				pkt_update_timestamp(pkt_to_send);
 
 				size_t len = MAX_PACKET_SIZE;
 				status = pkt_encode(pkt_to_send, buf, &len);
 				if(status != PKT_OK){
-					fprintf(stderr, "Encoding error : %s\n", pkt_get_error(status));
+					LOG("Encoding error : ");
+					LOG(pkt_get_error(status));
 				}
 
 				write_size = (int) write(sfd, (void*) buf, len);
@@ -204,6 +213,10 @@ void read_write_loop(FILE* f, int sfd){
 			if(status != PKT_OK){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
 			}else{
+				if(pkt_get_type(pkt)==PTYPE_ACK){
+					LOG("Received ack");
+					fprintf(stderr, "%d :%d\n", pkt_get_seqnum(pkt), nb_packet);			
+				}
 				if(pkt_compare_seqnum(pkt, pkt_to_send)){
 					if(pkt_get_type(pkt) == PTYPE_ACK){
 						seqnum++;

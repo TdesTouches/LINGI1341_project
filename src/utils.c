@@ -1,3 +1,10 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #include <stdio.h>
 #include <sys/timeb.h>
 
@@ -36,6 +43,11 @@ uint32_t tot_nb_packet(FILE *f){
 uint32_t get_time(){
 	struct timeb tp;
 	ftime(&tp);
-	uint32_t ct = (uint32_t) tp.time * 1000 + (uint32_t) tp.millitm;
-	return ct;
+	uint64_t ct = (uint32_t) tp.time * 1000 + (uint32_t) tp.millitm;
+	uint32_t ct_32 = ct % 2147483647;
+	return ct_32;
+}
+
+void LOG(const char* msg){
+	fprintf(stderr, "[LOG] : %s\n", msg);
 }

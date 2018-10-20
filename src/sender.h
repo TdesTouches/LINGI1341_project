@@ -1,3 +1,10 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #ifndef __SENDER_H__
 #define __SENDER_H__
 

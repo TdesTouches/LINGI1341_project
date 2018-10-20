@@ -1,3 +1,10 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #include "pkt.h"
 
 /* Extra #includes */
@@ -22,6 +29,7 @@ struct __attribute__((__packed__)) pkt {
 	char *payload;
 	uint32_t crc2; //
 };
+
 
 uint32_t pkt_gen_crc2(const pkt_t *pkt){
 	uLong crc = crc32(0L, Z_NULL, 0);
@@ -112,6 +120,20 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len){
 	*len = counter;
 	return PKT_OK;
 }
+
+
+pkt_status_code pkt_copy(pkt_t* dest, const pkt_t* source){
+	if(dest==NULL){
+		fprintf(stderr, "pkt_copy big error\n");
+		exit(EXIT_FAILURE);
+	}
+	memcpy(&dest->header, &source->header, sizeof(source->header));
+	pkt_set_payload(dest, pkt_get_payload(source), pkt_get_length(source));
+	memcpy(&dest->crc2, &source->crc2, sizeof(source->crc2));
+
+	return PKT_OK;
+}
+
 
 ptypes_t pkt_get_type  (const pkt_t* pkt){
 	return pkt->header.ptype;
@@ -211,6 +233,9 @@ pkt_status_code pkt_set_payload(pkt_t *pkt,
 								const uint16_t length){
 	if(data==NULL){
 		pkt_set_length(pkt, 0);
+		if(pkt->payload != NULL){
+			free(pkt->payload);
+		}
 		pkt->payload = NULL;
 		return PKT_OK;
 	}
@@ -252,7 +277,15 @@ int pkt_compare_seqnum(pkt_t* pkt1, pkt_t* pkt2){
 int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
 	uint32_t ts = pkt_get_timestamp(pkt);
 	uint32_t ct = get_time();
-	return ct - ts > RTT;
+	if(ts == 0){
+		LOG("New packet");
+		return 1; // 99% probability that this packet is a new packet
+	}
+	if(ct - ts > RTT){
+		LOG("Timestamp outdated, resend packet");
+		return 1;
+	}
+	return 0;
 }
 
 
@@ -318,4 +351,18 @@ void pkt_check_error(const char* msg, pkt_status_code status){
 	if(status != PKT_OK){
 		fprintf(stderr, "%s : %s\n", msg, pkt_get_error(status));
 	}
+}
+
+
+void pkt_print_info(pkt_t* pkt){
+	fprintf(stderr, "Header        : \n");
+	fprintf(stderr, "\tType        : %d\n", pkt_get_type(pkt));
+	fprintf(stderr, "\tTr          : %d\n", pkt_get_tr(pkt));
+	fprintf(stderr, "\twindow      : %d\n", pkt_get_window(pkt));
+	fprintf(stderr, "\tseqnum      : %d\n", pkt_get_seqnum(pkt));
+	fprintf(stderr, "\tlength      : %d\n", pkt_get_length(pkt));
+	fprintf(stderr, "\ttimestamp   : %d\n", pkt_get_timestamp(pkt));
+	fprintf(stderr, "\tcrc1        : %d\n", pkt_get_crc1(pkt));
+
+	fprintf(stderr, "crc2    : %d\n", pkt_get_crc2(pkt));
 }

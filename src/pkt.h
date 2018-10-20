@@ -1,3 +1,10 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #ifndef __PACKET_INTERFACE_H_
 #define __PACKET_INTERFACE_H_
 
@@ -82,6 +89,8 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt);
  */
 pkt_status_code pkt_encode(const pkt_t*, char *buf, size_t *len);
 
+
+pkt_status_code pkt_copy(pkt_t* dest, const pkt_t* source);
 /* Accesseurs pour les champs toujours presents du paquet.
  * Les valeurs renvoyees sont toutes dans l'endianness native
  * de la machine!
@@ -148,6 +157,9 @@ pkt_status_code pkt_create(	pkt_t* pkt,
 const char* pkt_get_error(pkt_status_code status);
 
 void pkt_check_error(const char* msg, pkt_status_code status);
+
+
+void pkt_print_info(pkt_t* pkt);
 
 #endif  /* __PACKET_INTERFACE_H_ */
 
