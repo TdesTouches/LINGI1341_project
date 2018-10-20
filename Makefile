@@ -30,7 +30,9 @@ clean :
 	rm -f receiver
 
 archive : gitlog
-	zip archive -r "src/" "tests/" "rapport.pdf" "gitlog.stat" -x sender receiver > zip.log
+	cp report/rapport.pdf rapport.pdf
+	zip projet1_gennart -r "src/" "tests/" "rapport.pdf" "gitlog.stat" \
+	 	-x sender receiver > zip.log
 
-gitlog : 
+gitlog :
 	git log --stat > gitlog.stat

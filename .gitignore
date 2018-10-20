@@ -5,6 +5,9 @@ receiver
 *.log
 *.stat
 *.dat
+*.aux
+report/rapport.pdf
+*.gz
 # Prerequisites
 *.d
 
