@@ -32,7 +32,7 @@ clean :
 archive : gitlog
 	cp report/rapport.pdf rapport.pdf
 	zip projet1_gennart -r "src/" "tests/" "rapport.pdf" "gitlog.stat" \
-	 	-x sender receiver > zip.log
+	 	"Makefile" -x sender receiver > zip.log
 
 gitlog :
 	git log --stat > gitlog.stat
