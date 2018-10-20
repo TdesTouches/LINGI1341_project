@@ -1,13 +1,13 @@
 /*
  * Author : Antoine Gennart
  * Date : 2018-10
- * Description : This file is part of the project folder for the course 
+ * Description : This file is part of the project folder for the course
  *               LINGI1341 at UCLouvain.
  */
 
 #include <stdio.h>
-#include <unistd.h> // getopt
-#include <stdlib.h> // exit
+#include <unistd.h>
+#include <stdlib.h>
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
@@ -26,10 +26,10 @@ int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
 	// ---------------------- parsing input arguments --------------------------
 	// --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  -
-	// input : 
+	// input :
 	// 	- int argc
 	//	- char** argv
-	// output : 
+	// output :
 	// 	- char* host
 	// 	- uint16_t port
 	// 	- FILE* input
@@ -102,10 +102,10 @@ int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
 	// --------------------------- Read write loop  ----------------------------
 	// --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  -
-	// input : 
+	// input :
 	// 	- int sfd
 	// 	- FILE* input OR stdin_fileno // if file==NULL
-	// output : 
+	// output :
 	read_write_loop(input, sfd);
 
 	// -------------------------------------------------------------------------
@@ -122,9 +122,9 @@ int main(int argc, char** argv){
 }
 
 
-pkt_status_code create_next_pkt(pkt_t* pkt, 
-								FILE *f, 
-								uint8_t seqnum, 
+pkt_status_code create_next_pkt(pkt_t* pkt,
+								FILE *f,
+								uint8_t seqnum,
 								uint8_t window,
 								uint32_t nb_packet){
 
@@ -144,7 +144,7 @@ pkt_status_code create_next_pkt(pkt_t* pkt,
 		pkt_set_payload(pkt, NULL, 0);
 	}
 
-	pkt_set_timestamp(pkt, 0); // 0 so that timestamp is outdated 
+	pkt_set_timestamp(pkt, 0); // 0 so that timestamp is outdated
 	pkt_set_crc1(pkt, pkt_gen_crc1(pkt));
 	pkt_set_crc2(pkt, pkt_gen_crc2(pkt));
 	return PKT_OK;
@@ -211,19 +211,18 @@ void read_write_loop(FILE* f, int sfd){
 			pkt_t *pkt = pkt_new();
 			status = pkt_decode(buf, read_size, pkt);
 			if(status != PKT_OK){
-				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
+				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
 			}else{
 				if(pkt_get_type(pkt)==PTYPE_ACK){
 					LOG("Received ack");
-					fprintf(stderr, "%d :%d\n", pkt_get_seqnum(pkt), nb_packet);			
 				}
 				if(pkt_compare_seqnum(pkt, pkt_to_send)){
 					if(pkt_get_type(pkt) == PTYPE_ACK){
 						seqnum++;
-						create_next_pkt(pkt_to_send, 
-										f, 
-										seqnum, 
-										window, 
+						create_next_pkt(pkt_to_send,
+										f,
+										seqnum,
+										window,
 										nb_packet);
 					}else if(pkt_get_type(pkt) == PTYPE_NACK){
 						fprintf(stderr, "NACK received!\nTODODODODO\n");

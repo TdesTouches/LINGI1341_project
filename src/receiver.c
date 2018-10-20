@@ -6,8 +6,8 @@
  */
 
 #include <stdio.h>
-#include <unistd.h> // getopt
-#include <stdlib.h> // exit
+#include <unistd.h>
+#include <stdlib.h>
 #include <poll.h>
 #include <errno.h>
 #include <string.h>
@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 1
+#define WINDOW 5
 
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
