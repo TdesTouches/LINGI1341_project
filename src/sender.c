@@ -175,8 +175,19 @@ void read_write_loop(FILE* f, int sfd){
 	pkt_status_code status;
 
 
-	// uint32_t ct = get_time(); // time in sec
-	uint32_t RTT = 1000; // rtt in millisec
+	// Variable for computing RTO using jacobson algorithm
+	uint32_t RTO = 3000; // rtt in millisec
+	int RTT_busy = 0; // 1 when computing rtt value
+	uint32_t RTT_estimation;
+	uint32_t RTT_startTime;
+	uint32_t RTT_endTime;
+	uint8_t RTT_seqnum;
+	double RTT_alpha = 0.125;
+	double RTT_beta = 0.25;
+	uint32_t srtt = RTO;
+	uint32_t rttvar = RTO / 2;
+
+
 
 	// <= because the last packet send is an PDATA with no data inside
 	while(seqnum <= nb_packet){ // while sending packets
@@ -187,9 +198,16 @@ void read_write_loop(FILE* f, int sfd){
 		}
 
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			if(pkt_timestamp_outdated(pkt_to_send, RTT) || first_packet){
+			if(pkt_timestamp_outdated(pkt_to_send, RTO) || first_packet){
 				first_packet = 0;
 				pkt_update_timestamp(pkt_to_send);
+
+				// Starting jacobson algorithm
+				if(RTT_busy==0){
+					RTT_startTime = get_time();
+					RTT_seqnum = pkt_get_seqnum(pkt_to_send);
+					RTT_busy = 1;
+				}
 
 				size_t len = MAX_PACKET_SIZE;
 				status = pkt_encode(pkt_to_send, buf, &len);
@@ -215,6 +233,21 @@ void read_write_loop(FILE* f, int sfd){
 			}else{
 				if(pkt_get_type(pkt)==PTYPE_ACK){
 					LOG("Received ack");
+					if(RTT_busy && pkt_get_seqnum(pkt)==RTT_seqnum){
+						RTT_busy = 0;
+						RTT_endTime = get_time();
+						RTT_estimation = RTT_endTime - RTT_startTime;
+						if(RTT_estimation < 10000){
+							rttvar = (1-RTT_beta)*rttvar
+									+ RTT_beta*abs(srtt-RTT_estimation);
+							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
+							LOG("RTO MODIFICATIONS");
+							fprintf(stderr, "%d\n", RTO);
+							RTO = srtt + 4*rttvar;
+						}else{
+							LOG("RTO exeception, should be very rare");
+						}
+					}
 				}
 				if(pkt_compare_seqnum(pkt, pkt_to_send)){
 					if(pkt_get_type(pkt) == PTYPE_ACK){
