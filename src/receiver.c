@@ -35,9 +35,6 @@ int main(int argc, char** argv){
 		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
 	}
 
-	fprintf(stderr, "%s\n", host);
-	fprintf(stderr, "%d\n", port);
-
 	// -------------------------------------------------------------------------
 
 
@@ -58,7 +55,6 @@ int main(int argc, char** argv){
 	}
 
 	int sfd = create_socket(&addr, port, NULL, -1); /* Connected */
-	fprintf(stderr, "Waiting for client\n");
 	if(sfd > 0 && wait_for_client(sfd) < 0){
 		fprintf(stderr, "Could not connect to client after the fist message\n");
 		close(sfd);
@@ -111,13 +107,16 @@ void read_write_loop(int sfd){
 
 	pkt_t* pkt_ack = pkt_new();
 	int send_ack = 0;
+	int end_transmission = 0;
 
-	while(1){
+	while(!end_transmission){
 
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
 			fprintf(stderr, "Error while poll : %s\n", strerror(errno));
 		}
+
+		// receive data
 		if(fds[0].revents == POLLIN){ // read socket
 			read_size = (int) read(sfd, (void*) buf, sizeof(buf));
 			pkt_t *pkt = pkt_new();
@@ -126,17 +125,23 @@ void read_write_loop(int sfd){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
 			}else{
 				if(pkt_get_seqnum(pkt) == seqnum){ // received waited packet
-					const char* payload = pkt_get_payload(pkt);
-					fprintf(stdout, "%s", payload);
-					seqnum++;
+					if(pkt_get_length(pkt) != 0){
+						const char* payload = pkt_get_payload(pkt);
+						fprintf(stdout, "%s", payload);
+					}else{
+						end_transmission = 1;
+					}
+						seqnum++;
 				}
 				if(pkt_get_seqnum(pkt) < seqnum){
 					send_ack = 1;
 					pkt_create(pkt_ack, pkt_get_seqnum(pkt), WINDOW, PTYPE_ACK);
 				}
 			}
+			pkt_del(pkt);
 		}
 
+		// send acks
 		if(fds[1].revents == POLLOUT){
 			if(send_ack==1){
 				send_ack = 0;
@@ -150,6 +155,7 @@ void read_write_loop(int sfd){
 				}
 			}
 		}
-	}
+	} // while (!end_transmission)
+	fflush(stdout);
 	pkt_del(pkt_ack);
 }

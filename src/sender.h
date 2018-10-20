@@ -5,7 +5,11 @@
 /*
 	Create the next packet
 */
-pkt_t* create_next_pkt(FILE *f, uint8_t pkt_nb, uint8_t window);
+pkt_status_code create_next_pkt(pkt_t* pkt, 
+								FILE *f, 
+								uint8_t pkt_nb, 
+								uint8_t window, 
+								uint32_t nb_packet);
 
 
 /*

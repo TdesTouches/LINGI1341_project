@@ -85,11 +85,6 @@ int main(int argc, char** argv){
 
 	// int sfd = create_socket(&addr, port, NULL, -1);
 	int sfd = create_socket(NULL, -1, &addr, port); /* Connected */
-	// if(sfd > 0 && wait_for_client(sfd) < 0){
-	// 	fprintf(stderr, "Could not connect to client after the fist message\n");
-	// 	close(sfd);
-	// 	return EXIT_FAILURE;
-	// }
 	if (sfd < 0) {
 		fprintf(stderr, "Failed to create the socket!\n");
 		return EXIT_FAILURE;
@@ -104,7 +99,6 @@ int main(int argc, char** argv){
 	// 	- int sfd
 	// 	- FILE* input OR stdin_fileno // if file==NULL
 	// output : 
-	fprintf(stderr, "Entering read write loop\n");
 	read_write_loop(input, sfd);
 
 	// -------------------------------------------------------------------------
@@ -112,6 +106,7 @@ int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
 	// --------------- close connection, end program properly  -----------------
 	// --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  -
+	fclose(input);
 	close(sfd);
 
 	// -------------------------------------------------------------------------
@@ -120,23 +115,31 @@ int main(int argc, char** argv){
 }
 
 
-pkt_t* create_next_pkt(FILE *f, uint8_t seqnum, uint8_t window){
-	pkt_t* pkt = pkt_new();
-
-	fseek(f, seqnum*MAX_PAYLOAD_SIZE, SEEK_SET);
-	char* buf = malloc(MAX_PAYLOAD_SIZE*sizeof(char));
-	size_t n_bytes = fread(buf, 1, MAX_PAYLOAD_SIZE, f);
+pkt_status_code create_next_pkt(pkt_t* pkt, 
+								FILE *f, 
+								uint8_t seqnum, 
+								uint8_t window,
+								uint32_t nb_packet){
 
 	pkt_set_type(pkt, PTYPE_DATA);
 	pkt_set_tr(pkt, 0);
 	pkt_set_window(pkt, window);
 	pkt_set_seqnum(pkt, seqnum);
 
-	pkt_set_payload(pkt, buf, n_bytes);
+	if(seqnum!=nb_packet){
+		fseek(f, seqnum*MAX_PAYLOAD_SIZE, SEEK_SET);
+		char* buf = malloc(MAX_PAYLOAD_SIZE*sizeof(char));
+		size_t n_bytes = fread(buf, 1, MAX_PAYLOAD_SIZE, f);
+		pkt_set_payload(pkt, buf, n_bytes);
+		free(buf);
+		return PKT_OK;
+	}else{
+		// last packet
+		pkt_set_payload(pkt, NULL, 0);
+		return PKT_OK;
+	}
 	pkt_update_timestamp(pkt);
 	pkt_set_crc2(pkt, pkt_gen_crc2(pkt));
-
-	return pkt;
 }
 
 
@@ -144,11 +147,12 @@ void read_write_loop(FILE* f, int sfd){
 	// window information
 	uint8_t window = 1;
 	uint8_t seqnum = 0;
-	pkt_t* sliding_window[MAX_WINDOW_SIZE];
+	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
 	int first_packet = 1;
-	sliding_window[0] = create_next_pkt(f, seqnum, window);
+	pkt_t *pkt_to_send = pkt_new();
+	create_next_pkt(pkt_to_send, f, seqnum, window, nb_packet);
 
 	struct pollfd fds[2]; // see man poll
 	fds[0].fd = sfd; // file descriptor
@@ -164,9 +168,9 @@ void read_write_loop(FILE* f, int sfd){
 
 
 	// uint32_t ct = get_time(); // time in millisec
-	uint32_t RTT = 1000; // rtt in millisec
+	uint32_t RTT = 250; // rtt in millisec
 
-	while(seqnum < nb_packet){ // while sending packets
+	while(seqnum <= nb_packet){ // while sending packets
 
 		// send packets
 		int ready = poll(fds, 2, timeout);
@@ -175,12 +179,12 @@ void read_write_loop(FILE* f, int sfd){
 		}
 
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			if(first_packet || pkt_timestamp_outdated(sliding_window[0], RTT)){
+			if(first_packet || pkt_timestamp_outdated(pkt_to_send, RTT)){
 				first_packet = 0;
-				pkt_update_timestamp(sliding_window[0]);
+				pkt_update_timestamp(pkt_to_send);
 
 				size_t len = MAX_PACKET_SIZE;
-				status = pkt_encode(sliding_window[0], buf,	&len);
+				status = pkt_encode(pkt_to_send, buf, &len);
 				if(status != PKT_OK){
 					fprintf(stderr, "Encoding error : %s\n", pkt_get_error(status));
 				}
@@ -192,8 +196,7 @@ void read_write_loop(FILE* f, int sfd){
 			}
 		}
 
-		// buf = memset(buf, 0, MAX_PACKET_SIZE);
-		// receive packets and check acks, move s_window if necessary
+		// receive packets and check acks
 		if(fds[1].revents == POLLIN){ // ready to read data on socket
 			read_size = (int) read(sfd, (void*) buf, sizeof(buf));
 			pkt_t *pkt = pkt_new();
@@ -201,14 +204,24 @@ void read_write_loop(FILE* f, int sfd){
 			if(status != PKT_OK){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
 			}else{
-				// compare timestamp with the sliding window elements
-				if(pkt_compare_timestamp(pkt, sliding_window[0])){
-					slide_array(sliding_window, MAX_WINDOW_SIZE);
-					seqnum++;
+				if(pkt_compare_seqnum(pkt, pkt_to_send)){
+					if(pkt_get_type(pkt) == PTYPE_ACK){
+						seqnum++;
+						create_next_pkt(pkt_to_send, 
+										f, 
+										seqnum, 
+										window, 
+										nb_packet);
+					}else if(pkt_get_type(pkt) == PTYPE_NACK){
+						fprintf(stderr, "NACK received!\nTODODODODO\n");
+					}
 				}
 			}
+			pkt_del(pkt);
 		}
 
 
 	}// while sending packet
+
+	pkt_del(pkt_to_send);
 }
