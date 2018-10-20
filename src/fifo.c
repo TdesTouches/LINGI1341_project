@@ -1,42 +1,24 @@
+/*
+ * Author : Antoine Gennart
+ * Date : 2018-10
+ * Description : This file is part of the project folder for the course 
+ *               LINGI1341 at UCLouvain.
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "pkt.h"
+#include "utils.h"
 
 #include "fifo.h"
 
-// int main(){
-// 	fifo_t* fifo = fifo_init();
-// 	pkt_t* pkt1 = pkt_new();
-// 	pkt_t* pkt2 = pkt_new();
-// 	pkt_set_seqnum(pkt1, 0);
-// 	pkt_set_seqnum(pkt2, 1);
-// 	fifo_push(fifo, pkt1);
-// 	fifo_push(fifo, pkt2);
-// 	pkt_t* rec1 = fifo_pop(fifo);
-// 	pkt_t* rec2 = fifo_pop(fifo);
-// 	pkt_t* rec3 = fifo_pop(fifo);
-// 	if(rec3==NULL){
-// 		fprintf(stderr, "Alleluia\n");
-// 	}
-// 	if(rec1==NULL){
-// 		fprintf(stderr, "err1\n" );
-// 	}
-// 	if(rec2==NULL){
-// 		fprintf(stderr, "err2\n" );
-// 	}
-// 	fprintf(stderr, "%d %d\n", pkt_get_seqnum(pkt1), pkt_get_seqnum(pkt2));
-// 	pkt_del(pkt1);
-// 	pkt_del(pkt2);
-// 	fifo_del(fifo);
-// 	return EXIT_SUCCESS;
-// }
-
-fifo_t *fifo_init(){
+fifo_t *fifo_new(){
 	fifo_t *fifo = malloc(sizeof(fifo_t));
 	fifo->first = NULL;
 	return fifo;
 }
+
 
 void fifo_del(fifo_t* fifo){
 	if(fifo!=NULL){
@@ -46,6 +28,12 @@ void fifo_del(fifo_t* fifo){
 		free(fifo);
 	}
 }
+
+
+int is_fifo_empty(fifo_t* fifo){
+	return fifo->first==NULL;
+}
+
 
 pkt_t* fifo_pop(fifo_t* fifo){
 	if(fifo==NULL){
@@ -63,6 +51,7 @@ pkt_t* fifo_pop(fifo_t* fifo){
 	}
 	return pkt;
 }
+
 
 void fifo_push(fifo_t* fifo, pkt_t* pkt){
 	if(pkt==NULL){
@@ -83,8 +72,8 @@ void fifo_push(fifo_t* fifo, pkt_t* pkt){
 	}else{
 		fifo_elem* curr = fifo->first;
 		while(curr->next != NULL){
-			if(sn==pkt_get_seqnum(curr->pkt)){
-				fprintf(stderr, "No need to add packet %d, already in queue\n", sn);
+			if(sn==pkt_get_seqnum(curr->next->pkt)){
+				LOG("Packet already in fifo");
 				return;
 			}
 			curr = curr->next;
@@ -93,5 +82,15 @@ void fifo_push(fifo_t* fifo, pkt_t* pkt){
 		new_elem->pkt = pkt;
 		new_elem->next = NULL;
 		curr->next = new_elem;
+	}
+}
+
+
+void fifo_print(fifo_t* fifo){
+	fifo_elem* curr = fifo->first;
+	fprintf(stderr, "FIFO block print\n");
+	while(curr != NULL){
+		fprintf(stderr, "%d\n", pkt_get_seqnum(curr->pkt));
+		curr = curr->next;
 	}
 }
