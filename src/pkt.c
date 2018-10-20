@@ -24,14 +24,12 @@ struct __attribute__((__packed__)) pkt {
 };
 
 uint32_t pkt_gen_crc2(const pkt_t *pkt){
-	fprintf(stderr, "Generate crc2\n");
 	uLong crc = crc32(0L, Z_NULL, 0);
 	crc = crc32(crc, (Bytef*) pkt_get_payload(pkt), pkt_get_length(pkt));
 	return htonl((uint32_t) crc);
 }
 
 uint32_t pkt_gen_crc1(const pkt_t *pkt){
-	fprintf(stderr, "Generate crc1\n");
 	uLong crc = crc32(0L, Z_NULL, 0);
 	uint8_t tr = pkt_get_tr(pkt);
 	pkt_set_tr((pkt_t*) pkt, 0);
@@ -44,13 +42,11 @@ uint32_t pkt_gen_crc1(const pkt_t *pkt){
 /* Your code will be inserted here */
 
 pkt_t* pkt_new(){
-	fprintf(stderr, "Creating new pkt\n");
 	pkt_t *pkt = (pkt_t*) calloc(1, sizeof(pkt_t));
 	return pkt;
 }
 
 void pkt_del(pkt_t *pkt){
-	fprintf(stderr, "deleting pkt\n");
 	if(pkt->payload != NULL){
 		free(pkt->payload);
 	}
@@ -58,12 +54,9 @@ void pkt_del(pkt_t *pkt){
 }
 
 pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt){
-	fprintf(stderr, "Decoding packet\n");
 	uint32_t counter = sizeof(pkt->header);
 	// cpy header
 	memcpy(pkt, data, sizeof(pkt->header));
-
-	fprintf(stderr, "pkt get length : %d\n", pkt_get_length(pkt));
 
 	if(len < sizeof(pkt_t)+pkt_get_length(pkt)-sizeof(char*)){
 		return E_NOMEM;
@@ -90,7 +83,6 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt){
 }
 
 pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len){
-	fprintf(stderr, "Encoding packet\n");
 	if(*len < pkt_get_length(pkt) + sizeof(pkt_t) - sizeof(pkt->payload)){
 	 	return E_NOMEM;
 	}
@@ -122,53 +114,43 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len){
 }
 
 ptypes_t pkt_get_type  (const pkt_t* pkt){
-	fprintf(stderr, "get type\n");
 	return pkt->header.ptype;
 }
 
 uint8_t  pkt_get_tr(const pkt_t* pkt){
-	fprintf(stderr, "get tr\n");
 	return pkt->header.tr;
 }
 
 uint8_t  pkt_get_window(const pkt_t* pkt){
-	fprintf(stderr, "get window\n");
 	return pkt->header.window;
 }
 
 uint8_t  pkt_get_seqnum(const pkt_t* pkt){
-	fprintf(stderr, "get seqnum\n");
 	return pkt->header.seqnum;
 }
 
 uint16_t pkt_get_length(const pkt_t* pkt){
-	fprintf(stderr, "get length\n");
 	return ntohs(pkt->header.length);
 }
 
 uint32_t pkt_get_timestamp   (const pkt_t* pkt){
-	fprintf(stderr, "get timestamp\n");
 	return pkt->header.timestamp;
 }
 
 uint32_t pkt_get_crc1   (const pkt_t* pkt){
-	fprintf(stderr, "get crc1\n");
 	return pkt->header.crc1;
 }
 
 uint32_t pkt_get_crc2   (const pkt_t* pkt){
-	fprintf(stderr, "get crc2\n");
 	return pkt->crc2;
 }
 
 const char* pkt_get_payload(const pkt_t* pkt){
-	fprintf(stderr, "get payload\n");
 	return pkt->payload;
 }
 
 
 pkt_status_code pkt_set_type(pkt_t *pkt, const ptypes_t type){
-	fprintf(stderr, "set type\n");
 	if(type != PTYPE_DATA && type != PTYPE_ACK && type != PTYPE_NACK){
 		fprintf(stderr, "bad type\n");
 		return E_TYPE;
@@ -178,7 +160,6 @@ pkt_status_code pkt_set_type(pkt_t *pkt, const ptypes_t type){
 }
 
 pkt_status_code pkt_set_tr(pkt_t *pkt, const uint8_t tr){
-	fprintf(stderr, "set tr\n");
 	if(tr != 0 && tr != 1){
 		fprintf(stderr, "bad tr\n");
 		return E_TR;
@@ -188,7 +169,6 @@ pkt_status_code pkt_set_tr(pkt_t *pkt, const uint8_t tr){
 }
 
 pkt_status_code pkt_set_window(pkt_t *pkt, const uint8_t window){
-	fprintf(stderr, "set window\n");
 	if(window > MAX_WINDOW_SIZE){
 		fprintf(stderr, "bad window\n");
 		return E_WINDOW;
@@ -198,13 +178,11 @@ pkt_status_code pkt_set_window(pkt_t *pkt, const uint8_t window){
 }
 
 pkt_status_code pkt_set_seqnum(pkt_t *pkt, const uint8_t seqnum){
-	fprintf(stderr, "set seqnum\n");
 	pkt->header.seqnum = seqnum;
 	return PKT_OK;
 }
 
 pkt_status_code pkt_set_length(pkt_t *pkt, const uint16_t length){
-	fprintf(stderr, "set length\n");
 	if(length > MAX_PAYLOAD_SIZE){
 		fprintf(stderr, "bad length\n");
 		return E_LENGTH;
@@ -214,19 +192,16 @@ pkt_status_code pkt_set_length(pkt_t *pkt, const uint16_t length){
 }
 
 pkt_status_code pkt_set_timestamp(pkt_t *pkt, const uint32_t timestamp){
-	fprintf(stderr, "set timestamp\n");
 	pkt->header.timestamp = timestamp;
 	return PKT_OK;
 }
 
 pkt_status_code pkt_set_crc1(pkt_t *pkt, const uint32_t crc1){
-	fprintf(stderr, "set crc1\n");
 	pkt->header.crc1 = crc1;
 	return PKT_OK;
 }
 
 pkt_status_code pkt_set_crc2(pkt_t *pkt, const uint32_t crc2){
-	fprintf(stderr, "set crc2\n");
 	pkt->crc2 = crc2;
 	return PKT_OK;
 }
@@ -234,17 +209,14 @@ pkt_status_code pkt_set_crc2(pkt_t *pkt, const uint32_t crc2){
 pkt_status_code pkt_set_payload(pkt_t *pkt,
 							    const char *data,
 								const uint16_t length){
-	fprintf(stderr, "set payload\n");
 	if(data==NULL){
 		pkt_set_length(pkt, 0);
 		pkt->payload = NULL;
-		fprintf(stderr, "no data \n");
 		return PKT_OK;
 	}
 
 	pkt_status_code status = pkt_set_length(pkt, length);
 	if(status != PKT_OK){
-		fprintf(stderr, "length problem\n");
 		return status;
 	}
 	if(pkt->payload == NULL){
@@ -254,7 +226,6 @@ pkt_status_code pkt_set_payload(pkt_t *pkt,
 	}
 
 	if(pkt->payload==NULL){
-		fprintf(stderr, "no mem\n");
 		return E_NOMEM;
 	}
 	memcpy(pkt->payload, data, length);
@@ -272,10 +243,10 @@ pkt_status_code pkt_update_timestamp(pkt_t* pkt){
 	return status;
 }
 
-int pkt_compare_timestamp(pkt_t* pkt1, pkt_t* pkt2){
-	uint32_t ts1 = pkt_get_timestamp(pkt1);
-	uint32_t ts2 = pkt_get_timestamp(pkt2);
-	return ts1==ts2;
+int pkt_compare_seqnum(pkt_t* pkt1, pkt_t* pkt2){
+	uint8_t sn1 = pkt_get_seqnum(pkt1);
+	uint8_t sn2 = pkt_get_seqnum(pkt2);
+	return sn1==sn2;
 }
 
 int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
@@ -289,7 +260,7 @@ pkt_status_code pkt_create(	pkt_t* pkt,
 							uint8_t seqnum,
 							uint8_t window,
 							ptypes_t type){
-	if(type != PTYPE_ACK || type != PTYPE_NACK){
+	if(type != PTYPE_ACK && type != PTYPE_NACK){
 		fprintf(stderr, "Bad use of pkt_create function (only ack or nack)\n");
 		exit(-1);
 	}

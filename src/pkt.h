@@ -136,7 +136,7 @@ pkt_status_code pkt_update_timestamp(pkt_t*);
  * return 1 if both timestamps are equals
  * return 0 otherwise
  */
-int pkt_compare_timestamp(pkt_t* pkt1, pkt_t* pkt2);
+int pkt_compare_seqnum(pkt_t* pkt1, pkt_t* pkt2);
 
 int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT);
 
