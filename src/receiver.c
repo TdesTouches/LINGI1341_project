@@ -160,7 +160,7 @@ void read_write_loop(int sfd){
 					pkt_create(pkt_ack, seq_ack, WINDOW, PTYPE_ACK);
 					fifo_push(fifo_ack, pkt_ack);
 					for(i=0;i<WINDOW;i++){
-						if(sliding_window_ok[i] && 
+						if(sliding_window_ok[i] &&
 									!(pkt_get_length(sliding_window[i])>0)){
 							end_transmission = 1;
 						}
@@ -195,7 +195,9 @@ void read_write_loop(int sfd){
 			LOG("Printing packet on stdout");
 			if(pkt_get_length(sliding_window[0])>0){
 				const char *payload = pkt_get_payload(sliding_window[0]);
-				fprintf(stdout, "%s", payload);
+				size_t pay_len = (size_t) pkt_get_length(sliding_window[0]);
+				write(STDOUT_FILENO, payload, pay_len);
+				//fprintf(stdout, "%s", payload);
 
 				pkt_del(sliding_window[0]);
 				for(i=0;i<WINDOW-1;i++){
@@ -221,7 +223,6 @@ void read_write_loop(int sfd){
 
 	} // while (!end_transmission)
 
-	fflush(stdout);
 	for(i=0;i<WINDOW;i++){
 		pkt_del(sliding_window[i]);
 	}
