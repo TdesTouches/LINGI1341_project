@@ -133,7 +133,7 @@ pkt_status_code create_next_pkt(pkt_t* pkt,
 	pkt_set_window(pkt, window);
 	pkt_set_seqnum(pkt, seqnum);
 
-	if(seqnum!=nb_packet){
+	if(seqnum<nb_packet){
 		fseek(f, seqnum*MAX_PAYLOAD_SIZE, SEEK_SET);
 		char* buf = malloc(MAX_PAYLOAD_SIZE*sizeof(char));
 		size_t n_bytes = fread(buf, 1, MAX_PAYLOAD_SIZE, f);
@@ -159,8 +159,17 @@ void read_write_loop(FILE* f, int sfd){
 
 	uint32_t nb_packet = tot_nb_packet(f);
 	int first_packet = 1;
-	pkt_t *pkt_to_send = pkt_new();
-	create_next_pkt(pkt_to_send, f, seqnum, window, nb_packet);
+	// pkt_t *pkt_to_send = pkt_new();
+	int i;
+
+	pkt_t *sliding_window[MAX_WINDOW_SIZE];
+	int sliding_window_ok[MAX_WINDOW_SIZE];
+	for(i=0;i<MAX_WINDOW_SIZE;i++){
+		sliding_window[i] = NULL;
+		sliding_window_ok[i] = 0;
+	}
+	sliding_window[0] = pkt_new();
+	create_next_pkt(sliding_window[0], f, seqnum, window, nb_packet);
 
 	struct pollfd fds[2]; // see man poll
 	fds[0].fd = sfd; // file descriptor
@@ -188,9 +197,8 @@ void read_write_loop(FILE* f, int sfd){
 	uint32_t rttvar = RTO / 2;
 
 
-
 	// <= because the last packet send is an PDATA with no data inside
-	while(seqnum <= nb_packet){ // while sending packets
+	while(seqnum < nb_packet){ // while sending packets
 		// send packets
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
@@ -198,27 +206,30 @@ void read_write_loop(FILE* f, int sfd){
 		}
 
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			if(pkt_timestamp_outdated(pkt_to_send, RTO) || first_packet){
-				first_packet = 0;
-				pkt_update_timestamp(pkt_to_send);
+			for(i=0;i<window;i++){
+				fprintf(stderr, "window : %d\n", i);
+				if(pkt_timestamp_outdated(sliding_window[i],RTO)||first_packet){
+					first_packet = 0;
+					pkt_update_timestamp(sliding_window[i]);
 
-				// Starting jacobson algorithm
-				if(RTT_busy==0){
-					RTT_startTime = get_time();
-					RTT_seqnum = pkt_get_seqnum(pkt_to_send);
-					RTT_busy = 1;
-				}
+					// Starting jacobson algorithm
+					if(RTT_busy==0){
+						RTT_startTime = get_time();
+						RTT_seqnum = pkt_get_seqnum(sliding_window[i]);
+						RTT_busy = 1;
+					}
 
-				size_t len = MAX_PACKET_SIZE;
-				status = pkt_encode(pkt_to_send, buf, &len);
-				if(status != PKT_OK){
-					LOG("Encoding error : ");
-					LOG(pkt_get_error(status));
-				}
+					size_t len = MAX_PACKET_SIZE;
+					status = pkt_encode(sliding_window[i], buf, &len);
+					if(status != PKT_OK){
+						LOG("Encoding error : ");
+						LOG(pkt_get_error(status));
+					}
 
-				write_size = (int) write(sfd, (void*) buf, len);
-				if(write_size != (int) len){
-					fprintf(stderr, "Writing the socket was incomplete\n");
+					write_size = (int) write(sfd, (void*) buf, len);
+					if(write_size != (int) len){
+						fprintf(stderr, "Writing the socket was incomplete\n");
+					}
 				}
 			}
 		}
@@ -233,40 +244,71 @@ void read_write_loop(FILE* f, int sfd){
 			}else{
 				if(pkt_get_type(pkt)==PTYPE_ACK){
 					LOG("Received ack");
+					// RTT update
 					if(RTT_busy && pkt_get_seqnum(pkt)==RTT_seqnum){
 						RTT_busy = 0;
 						RTT_endTime = get_time();
 						RTT_estimation = RTT_endTime - RTT_startTime;
 						if(RTT_estimation < 10000){
 							rttvar = (1-RTT_beta)*rttvar
-									+ RTT_beta*abs(srtt-RTT_estimation);
+										+ RTT_beta*abs(srtt-RTT_estimation);
 							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
-							LOG("RTO MODIFICATIONS");
-							fprintf(stderr, "%d\n", RTO);
 							RTO = srtt + 4*rttvar;
+							LOG("RTO MODIFICATIONS");
 						}else{
 							LOG("RTO exeception, should be very rare");
 						}
 					}
-				}
-				if(pkt_compare_seqnum(pkt, pkt_to_send)){
-					if(pkt_get_type(pkt) == PTYPE_ACK){
-						seqnum++;
-						create_next_pkt(pkt_to_send,
-										f,
-										seqnum,
-										window,
-										nb_packet);
-					}else if(pkt_get_type(pkt) == PTYPE_NACK){
-						fprintf(stderr, "NACK received!\nTODODODODO\n");
+					// acks and new packets
+					for(i=0;i<window;i++){
+						uint8_t seqnum_win = pkt_get_seqnum(sliding_window[i]);
+						uint8_t seqnum_pkt = pkt_get_seqnum(pkt);
+						if(seqnum_win==seqnum_pkt){
+							sliding_window_ok[i] = 1;
+						}
 					}
+
+					uint8_t window_in = pkt_get_window(pkt);
+					if(window_in < window){
+						for(i=window_in;i<window;i++){
+							sliding_window_ok[i] = 0;
+							if(sliding_window[i]!=NULL){
+								pkt_del(sliding_window[i]);
+								sliding_window[i] = NULL;
+							}
+						}
+						window = window_in;
+					}else if(window_in > window){
+						window = window_in;
+					}
+
+				}else if(pkt_get_type(pkt) == PTYPE_NACK){
+					fprintf(stderr, "NACK received!\nTODODODODO\n");
 				}
 			}
 			pkt_del(pkt);
 		}
 
-
+		while(sliding_window_ok[0] == 1){
+			seqnum++;
+			pkt_del(sliding_window[0]);
+			for(i=0;i<window;i++){
+				sliding_window[i] = sliding_window[i+1];
+				sliding_window_ok[i] = sliding_window_ok[i+1];
+				if(sliding_window[i]==NULL){
+					sliding_window[i] = pkt_new();
+				}
+				status = create_next_pkt(sliding_window[i],
+										 f,
+										 seqnum+i,
+										 window,
+										 nb_packet);
+			}
+			sliding_window_ok[window-1] = 0;
+		}
 	}// while sending packet
 
-	pkt_del(pkt_to_send);
+	for(i=0;i<window;i++){
+		pkt_del(sliding_window[i]);
+	}
 }

@@ -1,7 +1,7 @@
 /*
  * Author : Antoine Gennart
  * Date : 2018-10
- * Description : This file is part of the project folder for the course 
+ * Description : This file is part of the project folder for the course
  *               LINGI1341 at UCLouvain.
  */
 
@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 5
+#define WINDOW 2
 
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
@@ -79,9 +79,9 @@ int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
 	// --------------------------- Read write loop  ----------------------------
 	// --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  --  -
-	// input : 
+	// input :
 	// 	- int sfd
-	// output : 
+	// output :
 	// 	- stdout // if file==NULL
 	read_write_loop(sfd);
 
@@ -141,8 +141,11 @@ void read_write_loop(int sfd){
 			read_size = (int) read(sfd, (void*) buf, sizeof(buf));
 			pkt_t *pkt = pkt_new();
 			status = pkt_decode(buf, read_size, pkt);
-			if(status != PKT_OK || pkt_get_type(pkt) != PTYPE_DATA){
-				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));	
+			if(status != PKT_OK){
+				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
+			}else if(pkt_get_type(pkt) != PTYPE_DATA){
+				LOG("pkt contains no data");
+				pkt_print_info(pkt);
 			}else{
 				uint8_t sn_in = pkt_get_seqnum(pkt);
 				int index = sn_in - seqnum;
@@ -157,7 +160,8 @@ void read_write_loop(int sfd){
 					pkt_create(pkt_ack, seq_ack, WINDOW, PTYPE_ACK);
 					fifo_push(fifo_ack, pkt_ack);
 					for(i=0;i<WINDOW;i++){
-						if(!(pkt_get_length(sliding_window[i])>0) && sliding_window_ok[i]){ // last packet
+						if(!(pkt_get_length(sliding_window[i])>0) &&
+														sliding_window_ok[i]){
 							end_transmission = 1;
 						}
 					}
