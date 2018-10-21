@@ -8,8 +8,24 @@
 #ifndef __UTILS_H_
 #define __UTILS_H_
 
+#define DEBUG 1
+
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+
+// from Youri mouton
+#define _INFO(file, prefix, msg, ...)           \
+    do {                                        \
+        if (DEBUG)                              \
+        fprintf(file, prefix ": "msg"\n",	    \
+	##__VA_ARGS__);                             \
+    } while(0)
+
+#define LOG(msg, ...)   _INFO(stderr, "[LOG]", msg, ##__VA_ARGS__)
+#define ERROR(msg, ...) _INFO(stderr, "[ERROR]", msg, ##__VA_ARGS__)
+// not from youri mouton anymore
+
 
 /*
  * slide array to the left
@@ -28,6 +44,4 @@ uint32_t tot_nb_packet(FILE *f);
 
 uint32_t get_time();
 
-
-void LOG(const char* msg);
 #endif

@@ -46,7 +46,3 @@ uint32_t get_time(){
 	uint32_t ct_32 = ct % 4294967295;
 	return ct_32;
 }
-
-void LOG(const char* msg){
-	fprintf(stderr, "[LOG] : %s\n", msg);
-}

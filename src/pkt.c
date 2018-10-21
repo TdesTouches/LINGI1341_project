@@ -1,7 +1,7 @@
 /*
  * Author : Antoine Gennart
  * Date : 2018-10
- * Description : This file is part of the project folder for the course 
+ * Description : This file is part of the project folder for the course
  *               LINGI1341 at UCLouvain.
  */
 
@@ -94,7 +94,7 @@ pkt_status_code pkt_encode(const pkt_t* pkt, char *buf, size_t *len){
 	if(*len < pkt_get_length(pkt) + sizeof(pkt_t) - sizeof(pkt->payload)){
 	 	return E_NOMEM;
 	}
-	
+
 	size_t counter = sizeof(pkt->header) - sizeof(uint32_t);
 	// Encode header without crc1
 	memcpy(buf, pkt, counter);
@@ -278,7 +278,7 @@ int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
 	uint32_t ts = pkt_get_timestamp(pkt);
 	uint32_t ct = get_time();
 	if(ts == 0){
-		LOG("New packet");
+		LOG("New packet %d", pkt_get_seqnum(pkt));
 		return 1; // 99% probability that this packet is a new packet
 	}
 	if(ct - ts > RTT){

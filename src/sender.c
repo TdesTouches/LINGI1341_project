@@ -13,7 +13,6 @@
 #include <string.h>
 #include <sys/timeb.h>
 
-
 #include "pkt.h"
 #include "network.h"
 #include "utils.h"
@@ -34,14 +33,14 @@ int main(int argc, char** argv){
 	// 	- uint16_t port
 	// 	- FILE* input
 
-	if(argc < 3){
+	if(argc < 5){
 		fprintf(stderr, "Usage:\n");
 		fprintf(stderr, "sender <opts> [file] <hostname> <port>\n");
 		fprintf(stderr, "   -f : input file\n");
 		exit(0);
 	}
 
-	FILE *input = NULL;
+	FILE *input;
 	char *host;
 	uint16_t port;
 
@@ -54,12 +53,12 @@ int main(int argc, char** argv){
 				input = fopen(optarg, "rb");
 				if(input==NULL){
 					fprintf(stderr, "Cannot open file %s\n", optarg);
-					exit(EXIT_FAILURE);
+					exit(-1);
 				}
 				break;
 			default:
 				fprintf(stderr, "Option not recognized\n");
-				exit(EXIT_FAILURE);
+				exit(-1);
 				break;
 		}
 	}
@@ -70,26 +69,6 @@ int main(int argc, char** argv){
 		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
 	}
 
-	if(argc==3 && input==NULL){ // input on standard input
-		input = fopen("input_stdin.dat", "wb");
-		if(input==NULL){
-			LOG("Cannot open file input_stdin.dat in write mode");
-			exit(EXIT_FAILURE);
-		}
-		LOG("Waiting for the user to type message");
-		char buffer;
-		while(!feof(stdin)){
-			size_t bytes = fread(&buffer, 1, sizeof(char), stdin);
-			fwrite(&buffer, bytes, sizeof(char), input);
-		}
-		fclose(input);
-		input = fopen("input_stdin.dat", "rb");
-		if(input==NULL){
-			LOG("Cannot open file input_stdin.dat in read mode");
-			exit(EXIT_FAILURE);
-		}
-		LOG("Using stdin as input");
-	}
 
 	// -------------------------------------------------------------------------
 
@@ -126,7 +105,11 @@ int main(int argc, char** argv){
 	// 	- int sfd
 	// 	- FILE* input OR stdin_fileno // if file==NULL
 	// output :
+	uint32_t before = get_time();
 	read_write_loop(input, sfd);
+	uint32_t after = get_time();
+	fprintf(stderr, "Transmission duration  : %d msec\n", after-before);
+
 
 	// -------------------------------------------------------------------------
 
@@ -175,8 +158,11 @@ void read_write_loop(FILE* f, int sfd){
 	// window information
 	uint8_t window = 1;
 	uint8_t seqnum = 0;
+	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
+	int first_packet = 1;
+	// pkt_t *pkt_to_send = pkt_new();
 	int i;
 
 	pkt_t *sliding_window[MAX_WINDOW_SIZE];
@@ -202,35 +188,31 @@ void read_write_loop(FILE* f, int sfd){
 
 
 	// Variable for computing RTO using jacobson algorithm
-	uint32_t RTO = 3000; // rtt in millisec
+	uint32_t RTO = 5000; // rtt in millisec
 	const uint32_t MAX_RTO = 5000;
 	int RTT_busy = 0; // 1 when computing rtt value
 	uint32_t RTT_estimation;
 	uint32_t RTT_startTime;
 	uint32_t RTT_endTime;
 	uint8_t RTT_seqnum;
-	double RTT_alpha = 0.125;
-	double RTT_beta = 0.25;
+	const double RTT_alpha = 0.125;
+	const double RTT_beta = 0.25;
 	uint32_t srtt = RTO;
 	uint32_t rttvar = RTO / 2;
 
-	// for transmission timeout 
-	uint32_t now = get_time();
-	uint32_t action_time = get_time();
-	int transmission_timeout = 0;
 
-	while(seqnum < nb_packet && !transmission_timeout){ // while sending packets
+	// <= because the last packet send is an PDATA with no data inside
+	while(seqnum < nb_packet){ // while sending packets
 		// send packets
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
 			fprintf(stderr, "Error while poll : %s\n", strerror(errno));
 		}
 
-		// send packets
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			for(i=0;i<window && (uint32_t) (seqnum+i)<nb_packet;i++){
-				if(pkt_timestamp_outdated(sliding_window[i],RTO)){
-					LOG("Sending packet");
+			for(i=0;i<window;i++){
+				if(pkt_timestamp_outdated(sliding_window[i],RTO)||first_packet){
+					first_packet = 0;
 					pkt_update_timestamp(sliding_window[i]);
 
 					// Starting jacobson algorithm
@@ -244,17 +226,12 @@ void read_write_loop(FILE* f, int sfd){
 					status = pkt_encode(sliding_window[i], buf, &len);
 					if(status != PKT_OK){
 						LOG("Encoding error : ");
-						LOG(pkt_get_error(status));
 					}
 
-					if(len!=0){
-						write_size = (int) write(sfd, (void*) buf, len);
-						if(write_size != (int) len){
-							LOG("Writing the socket was incomplete");
-						}
+					write_size = (int) write(sfd, (void*) buf, len);
+					if(write_size != (int) len){
+						fprintf(stderr, "Writing the socket was incomplete\n");
 					}
-
-					action_time = get_time();
 				}
 			}
 		}
@@ -268,12 +245,13 @@ void read_write_loop(FILE* f, int sfd){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
 			}else{
 				if(pkt_get_type(pkt)==PTYPE_ACK){
-					LOG("Received ack");
+					LOG("Received ack %d", pkt_get_seqnum(pkt));
 					// RTT update
 					if(RTT_busy && pkt_get_seqnum(pkt)==RTT_seqnum){
 						RTT_busy = 0;
 						RTT_endTime = get_time();
 						RTT_estimation = RTT_endTime - RTT_startTime;
+						RTT_estimation = RTT_estimation==0 ? 1 : RTT_estimation;
 						if(RTT_estimation < 10000){
 							rttvar = (1-RTT_beta)*rttvar
 										+ RTT_beta*abs(srtt-RTT_estimation);
@@ -284,6 +262,7 @@ void read_write_loop(FILE* f, int sfd){
 							LOG("RTO exeception, should be very rare");
 						}
 					}
+
 					// acks and new packets
 					for(i=0;i<window;i++){
 						uint8_t seqnum_win = pkt_get_seqnum(sliding_window[i]);
@@ -293,6 +272,7 @@ void read_write_loop(FILE* f, int sfd){
 						}
 					}
 
+					// check window
 					uint8_t window_in = pkt_get_window(pkt);
 					if(window_in < window){
 						for(i=window_in;i<window;i++){
@@ -311,11 +291,9 @@ void read_write_loop(FILE* f, int sfd){
 					fprintf(stderr, "NACK received!\nTODODODODO\n");
 				}
 			}
-			action_time = get_time();
 			pkt_del(pkt);
 		}
 
-		// move sliding window if needed
 		while(sliding_window_ok[0] == 1){
 			seqnum++;
 			pkt_del(sliding_window[0]);
@@ -324,25 +302,25 @@ void read_write_loop(FILE* f, int sfd){
 				sliding_window_ok[i] = sliding_window_ok[i+1];
 				if(sliding_window[i]==NULL){
 					sliding_window[i] = pkt_new();
+					status = create_next_pkt(sliding_window[i],
+											 f,
+											 seqnum+i,
+											 window,
+											 nb_packet);
+				}else{
+					status = create_next_pkt(sliding_window[i],
+											 f,
+											 seqnum+i,
+											 window,
+											 nb_packet);
+					pkt_update_timestamp(sliding_window[i]);
 				}
-				status = create_next_pkt(sliding_window[i],
-										 f,
-										 seqnum+i,
-										 window,
-										 nb_packet);
 			}
 			sliding_window_ok[window-1] = 0;
-			action_time = get_time();
-		}
-
-		// check timeout
-		now = get_time();
-		if(now-action_time > 5000){ // 5 seconds
-			LOG("Timeout");
-			transmission_timeout = 1;
 		}
 	}// while sending packet
 
+	// frees
 	for(i=0;i<window;i++){
 		pkt_del(sliding_window[i]);
 	}

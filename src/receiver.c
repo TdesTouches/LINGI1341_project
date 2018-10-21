@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 3
+#define WINDOW 10
 
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
@@ -83,6 +83,7 @@ int main(int argc, char** argv){
 	// 	- int sfd
 	// output :
 	// 	- stdout // if file==NULL
+
 	read_write_loop(sfd);
 
 	// -------------------------------------------------------------------------
@@ -137,10 +138,10 @@ void read_write_loop(int sfd){
 
 		// receive data
 		if(fds[0].revents == POLLIN){ // read socket
-			LOG("Receiving packet");
 			read_size = (int) read(sfd, (void*) buf, sizeof(buf));
 			pkt_t *pkt = pkt_new();
 			status = pkt_decode(buf, read_size, pkt);
+			LOG("Receiving packet %d", pkt_get_seqnum(pkt));
 			if(status != PKT_OK){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
 			}else if(pkt_get_type(pkt) != PTYPE_DATA){
@@ -156,8 +157,7 @@ void read_write_loop(int sfd){
 				}
 				if(pkt_get_seqnum(pkt) < seqnum + WINDOW - 1){
 					pkt_t* pkt_ack = pkt_new();
-					uint8_t seq_ack = pkt_get_seqnum(pkt);
-					pkt_create(pkt_ack, seq_ack, WINDOW, PTYPE_ACK);
+					pkt_create(pkt_ack, seqnum, WINDOW, PTYPE_ACK);
 					fifo_push(fifo_ack, pkt_ack);
 					for(i=0;i<WINDOW;i++){
 						if(sliding_window_ok[i] &&
@@ -174,8 +174,8 @@ void read_write_loop(int sfd){
 		// send acks
 		if(fds[1].revents == POLLOUT){
 			while(!is_fifo_empty(fifo_ack)){
-				LOG("Sending acks");
 				pkt_t* pkt_ack = fifo_pop(fifo_ack);
+				LOG("Sending acks %d", pkt_get_seqnum(pkt_ack));
 				pkt_update_timestamp(pkt_ack);
 				len = MAX_PACKET_SIZE;
 				status = pkt_encode(pkt_ack, buf, &len);
