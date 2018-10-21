@@ -23,7 +23,8 @@ receiver :
 	$(CC) $(CFLAGS) $(RECEIVER_SRC) -o receiver $(LDFLAGS)
 
 tests :
-	tests/simple_test.sh
+	# tests/simple_test.sh
+	tests/linksim_test.sh
 
 
 .PHONY: clean gitlog tests
