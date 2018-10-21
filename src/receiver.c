@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 2
+#define WINDOW 3
 
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
@@ -160,8 +160,8 @@ void read_write_loop(int sfd){
 					pkt_create(pkt_ack, seq_ack, WINDOW, PTYPE_ACK);
 					fifo_push(fifo_ack, pkt_ack);
 					for(i=0;i<WINDOW;i++){
-						if(!(pkt_get_length(sliding_window[i])>0) &&
-														sliding_window_ok[i]){
+						if(sliding_window_ok[i] && 
+									!(pkt_get_length(sliding_window[i])>0)){
 							end_transmission = 1;
 						}
 					}
@@ -214,7 +214,7 @@ void read_write_loop(int sfd){
 		}
 
 		now = get_time();
-		if(now-action_time > 5000){
+		if(now-action_time > 5000){ // 5 seconds
 			LOG("Timeout");
 			end_transmission = 1;
 		}

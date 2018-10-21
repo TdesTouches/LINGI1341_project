@@ -34,14 +34,14 @@ int main(int argc, char** argv){
 	// 	- uint16_t port
 	// 	- FILE* input
 
-	if(argc < 5){
+	if(argc < 3){
 		fprintf(stderr, "Usage:\n");
 		fprintf(stderr, "sender <opts> [file] <hostname> <port>\n");
 		fprintf(stderr, "   -f : input file\n");
 		exit(0);
 	}
 
-	FILE *input;
+	FILE *input = NULL;
 	char *host;
 	uint16_t port;
 
@@ -54,12 +54,12 @@ int main(int argc, char** argv){
 				input = fopen(optarg, "rb");
 				if(input==NULL){
 					fprintf(stderr, "Cannot open file %s\n", optarg);
-					exit(-1);
+					exit(EXIT_FAILURE);
 				}
 				break;
 			default:
 				fprintf(stderr, "Option not recognized\n");
-				exit(-1);
+				exit(EXIT_FAILURE);
 				break;
 		}
 	}
@@ -70,6 +70,26 @@ int main(int argc, char** argv){
 		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
 	}
 
+	if(argc==3 && input==NULL){ // input on standard input
+		input = fopen("input_stdin.dat", "wb");
+		if(input==NULL){
+			LOG("Cannot open file input_stdin.dat in write mode");
+			exit(EXIT_FAILURE);
+		}
+		LOG("Waiting for the user to type message");
+		char buffer;
+		while(!feof(stdin)){
+			size_t bytes = fread(&buffer, 1, sizeof(char), stdin);
+			fwrite(&buffer, bytes, sizeof(char), input);
+		}
+		fclose(input);
+		input = fopen("input_stdin.dat", "rb");
+		if(input==NULL){
+			LOG("Cannot open file input_stdin.dat in read mode");
+			exit(EXIT_FAILURE);
+		}
+		LOG("Using stdin as input");
+	}
 
 	// -------------------------------------------------------------------------
 
@@ -155,11 +175,8 @@ void read_write_loop(FILE* f, int sfd){
 	// window information
 	uint8_t window = 1;
 	uint8_t seqnum = 0;
-	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
-	int first_packet = 1;
-	// pkt_t *pkt_to_send = pkt_new();
 	int i;
 
 	pkt_t *sliding_window[MAX_WINDOW_SIZE];
@@ -186,6 +203,7 @@ void read_write_loop(FILE* f, int sfd){
 
 	// Variable for computing RTO using jacobson algorithm
 	uint32_t RTO = 3000; // rtt in millisec
+	const uint32_t MAX_RTO = 5000;
 	int RTT_busy = 0; // 1 when computing rtt value
 	uint32_t RTT_estimation;
 	uint32_t RTT_startTime;
@@ -196,20 +214,23 @@ void read_write_loop(FILE* f, int sfd){
 	uint32_t srtt = RTO;
 	uint32_t rttvar = RTO / 2;
 
+	// for transmission timeout 
+	uint32_t now = get_time();
+	uint32_t action_time = get_time();
+	int transmission_timeout = 0;
 
-	// <= because the last packet send is an PDATA with no data inside
-	while(seqnum < nb_packet){ // while sending packets
+	while(seqnum < nb_packet && !transmission_timeout){ // while sending packets
 		// send packets
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
 			fprintf(stderr, "Error while poll : %s\n", strerror(errno));
 		}
 
+		// send packets
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
-			for(i=0;i<window;i++){
-				fprintf(stderr, "window : %d\n", i);
-				if(pkt_timestamp_outdated(sliding_window[i],RTO)||first_packet){
-					first_packet = 0;
+			for(i=0;i<window && (uint32_t) (seqnum+i)<nb_packet;i++){
+				if(pkt_timestamp_outdated(sliding_window[i],RTO)){
+					LOG("Sending packet");
 					pkt_update_timestamp(sliding_window[i]);
 
 					// Starting jacobson algorithm
@@ -226,10 +247,14 @@ void read_write_loop(FILE* f, int sfd){
 						LOG(pkt_get_error(status));
 					}
 
-					write_size = (int) write(sfd, (void*) buf, len);
-					if(write_size != (int) len){
-						fprintf(stderr, "Writing the socket was incomplete\n");
+					if(len!=0){
+						write_size = (int) write(sfd, (void*) buf, len);
+						if(write_size != (int) len){
+							LOG("Writing the socket was incomplete");
+						}
 					}
+
+					action_time = get_time();
 				}
 			}
 		}
@@ -253,7 +278,7 @@ void read_write_loop(FILE* f, int sfd){
 							rttvar = (1-RTT_beta)*rttvar
 										+ RTT_beta*abs(srtt-RTT_estimation);
 							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
-							RTO = srtt + 4*rttvar;
+							RTO = MIN(srtt + 4*rttvar, MAX_RTO);
 							LOG("RTO MODIFICATIONS");
 						}else{
 							LOG("RTO exeception, should be very rare");
@@ -286,9 +311,11 @@ void read_write_loop(FILE* f, int sfd){
 					fprintf(stderr, "NACK received!\nTODODODODO\n");
 				}
 			}
+			action_time = get_time();
 			pkt_del(pkt);
 		}
 
+		// move sliding window if needed
 		while(sliding_window_ok[0] == 1){
 			seqnum++;
 			pkt_del(sliding_window[0]);
@@ -305,6 +332,14 @@ void read_write_loop(FILE* f, int sfd){
 										 nb_packet);
 			}
 			sliding_window_ok[window-1] = 0;
+			action_time = get_time();
+		}
+
+		// check timeout
+		now = get_time();
+		if(now-action_time > 5000){ // 5 seconds
+			LOG("Timeout");
+			transmission_timeout = 1;
 		}
 	}// while sending packet
 

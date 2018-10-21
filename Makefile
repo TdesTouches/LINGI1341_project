@@ -22,15 +22,17 @@ sender :
 receiver :
 	$(CC) $(CFLAGS) $(RECEIVER_SRC) -o receiver $(LDFLAGS)
 
-test :
+tests :
 	tests/simple_test.sh
 
 
-.PHONY: clean gitlog
+.PHONY: clean gitlog tests
 
 clean :
 	rm -f sender
 	rm -f receiver
+	rm -f *.log
+	rm -f *.dat
 
 archive : gitlog
 	cp report/rapport.pdf rapport.pdf

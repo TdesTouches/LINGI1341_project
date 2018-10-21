@@ -12,7 +12,6 @@
 
 #include "utils.h"
 
-
 void slide_array(pkt_t **array, int len){
 	int i=0;
 	for(i=0; i<len-1; i++){
