@@ -4,6 +4,8 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{graphicx}
+\usepackage{pgfplots}
+\usepackage{tikz}
 \usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
 \author{Antoine Gennart}
 \title{Projet 1 - Rapport}
@@ -29,13 +31,13 @@ Ce rapport décrit l'architecture globale du projet, et répond aux questions im
 
 \section{Questions}
 \subsection{Que mettez-vous dans le champs Timestamp, et quelle utilisation en faites-vous?}
-Le champs timestamp contient un nombre de millisecondes. Il est calculé comme suit : 
+Le champs timestamp contient un nombre de microsecondes. Il est calculé comme suit : 
 \begin{equation*}
-	\text{timestamp} = t_{epoch} \% (2^{32}-1)
+	\text{timestamp} = t_{epoch} \% (2^{32}-1) [\mu s]
 \end{equation*}
-ou $t_{epoch}$ correspond au temps écoulé depuis l'epoch en millisecondes et \% représente l'opération modulo.
+ou $t_{epoch}$ correspond au temps écoulé depuis l'epoch en microsecondes et \% représente l'opération modulo.
 
-Le timestamp étant enregistré sur 32 bits, il est limité dans sa précision. Utiliser la valeur calculée ci dessus correspond à un cycle d'environ 50 jours entre chaque réinitialisation du timestamp.
+Le timestamp étant enregistré sur 32 bits, il est limité dans sa précision. Utiliser la valeur calculée ci dessus correspond à un cycle d'environ 1 heure entre chaque réinitialisation du timestamp.
 
 \subsection{Comment réagissez-vous à la réception de paquets PTYPE\_NACK?}
 Lorsque le \textit{sender} reçoit un packet de type PTYPE\_NACK, il sait que le packet n'a pas été correctement transmit au \textit{receiver}, il va donc directement renvoyer un packet sans prendre en compte la valeur du retransmission timeout. 
@@ -64,7 +66,21 @@ La partie la plus critique est l'attente d'un \textit{acknowledgment} lorsque qu
 
 \subsection{Quelles sont les performances de votre protocole?}
 
+\begin{figure}[!h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  xlabel=Window size,
+  ylabel=Performance [bytes/s]
+\addplot table [y=P, x=W]{perf.data};
+\end{axis}
+\end{tikzpicture}
+\caption{Mesure de la performance en fonction de la taille de la \textit{sliding window}}
+\end{figure}
+
 \subsection{Quelles sont les stratégies de test que vous avez utilisées?}
-Pour le moment la stratégie de test consiste a envoyer et recevoir un fichier, pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
+La stratégie de test consiste a envoyer et recevoir un fichier, pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
+
+Une seconde stratégie consiste à réaliser exactement la même chose que précédement, mais en utilisant un simulateur de lien prévu à cet effet.
 
 \end{document}

@@ -108,8 +108,7 @@ int main(int argc, char** argv){
 	uint32_t before = get_time();
 	read_write_loop(input, sfd);
 	uint32_t after = get_time();
-	fprintf(stderr, "Transmission duration  : %d msec\n", after-before);
-
+	fprintf(stderr, "Performance : %f\n", 9250.0/ ((double) (after-before))*1e6);
 
 	// -------------------------------------------------------------------------
 
@@ -127,17 +126,17 @@ int main(int argc, char** argv){
 
 pkt_status_code create_next_pkt(pkt_t* pkt,
 								FILE *f,
-								uint8_t seqnum,
+								uint32_t seqnum32,
 								uint8_t window,
 								uint32_t nb_packet){
 
 	pkt_set_type(pkt, PTYPE_DATA);
 	pkt_set_tr(pkt, 0);
 	pkt_set_window(pkt, window);
-	pkt_set_seqnum(pkt, seqnum);
+	pkt_set_seqnum(pkt, (uint8_t) seqnum32);
 
-	if(seqnum<nb_packet){
-		fseek(f, seqnum*MAX_PAYLOAD_SIZE, SEEK_SET);
+	if(seqnum32<nb_packet){
+		fseek(f, seqnum32*MAX_PAYLOAD_SIZE, SEEK_SET);
 		char* buf = malloc(MAX_PAYLOAD_SIZE*sizeof(char));
 		size_t n_bytes = fread(buf, 1, MAX_PAYLOAD_SIZE, f);
 		pkt_set_payload(pkt, buf, n_bytes);
@@ -157,7 +156,7 @@ pkt_status_code create_next_pkt(pkt_t* pkt,
 void read_write_loop(FILE* f, int sfd){
 	// window information
 	uint8_t window = 1;
-	uint8_t seqnum = 0;
+	uint32_t seqnum32 = 0;
 	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
@@ -172,7 +171,7 @@ void read_write_loop(FILE* f, int sfd){
 		sliding_window_ok[i] = 0;
 	}
 	sliding_window[0] = pkt_new();
-	create_next_pkt(sliding_window[0], f, seqnum, window, nb_packet);
+	create_next_pkt(sliding_window[0], f, (uint8_t) seqnum32, window, nb_packet);
 
 	struct pollfd fds[2]; // see man poll
 	fds[0].fd = sfd; // file descriptor
@@ -188,8 +187,8 @@ void read_write_loop(FILE* f, int sfd){
 
 
 	// Variable for computing RTO using jacobson algorithm
-	uint32_t RTO = 5000; // rtt in millisec
-	const uint32_t MAX_RTO = 5000;
+	uint32_t RTO = 5000000; // rtt in microsec
+	const uint32_t MAX_RTO = 5000000;
 	int RTT_busy = 0; // 1 when computing rtt value
 	uint32_t RTT_estimation;
 	uint32_t RTT_startTime;
@@ -202,7 +201,7 @@ void read_write_loop(FILE* f, int sfd){
 
 
 	// <= because the last packet send is an PDATA with no data inside
-	while(seqnum < nb_packet){ // while sending packets
+	while(seqnum32 < nb_packet){ // while sending packets
 		// send packets
 		int ready = poll(fds, 2, timeout);
 		if(ready==-1){
@@ -251,19 +250,33 @@ void read_write_loop(FILE* f, int sfd){
 						RTT_busy = 0;
 						RTT_endTime = get_time();
 						RTT_estimation = RTT_endTime - RTT_startTime;
-						RTT_estimation = RTT_estimation==0 ? 1 : RTT_estimation;
-						if(RTT_estimation < 10000){
+						// RTT_estimation = RTT_estimation==0 ? 1 : RTT_estimation;
+						if(RTT_estimation < 10000000){
 							rttvar = (1-RTT_beta)*rttvar
 										+ RTT_beta*abs(srtt-RTT_estimation);
 							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
 							RTO = MIN(srtt + 4*rttvar, MAX_RTO);
-							LOG("RTO MODIFICATIONS");
+							LOG("RTO MODIFICATIONS %d", RTO);
 						}else{
 							LOG("RTO exeception, should be very rare");
 						}
 					}
 
 					// acks and new packets
+					uint8_t sn_pkt = pkt_get_seqnum(pkt);;
+					while(sn_pkt - (uint8_t) seqnum32 < 0){
+						seqnum32 = seqnum32 - 1;
+						for(i=1;i<window;i++){
+							sliding_window[i] = sliding_window[i-1];
+							sliding_window_ok[i] = sliding_window_ok[i-1];
+						}
+						create_next_pkt(sliding_window[0],
+										f,
+										(uint8_t) (seqnum32),
+										window,
+										nb_packet);
+					}
+
 					for(i=0;i<window;i++){
 						uint8_t seqnum_win = pkt_get_seqnum(sliding_window[i]);
 						uint8_t seqnum_pkt = pkt_get_seqnum(pkt);
@@ -295,7 +308,7 @@ void read_write_loop(FILE* f, int sfd){
 		}
 
 		while(sliding_window_ok[0] == 1){
-			seqnum++;
+			seqnum32++;
 			pkt_del(sliding_window[0]);
 			for(i=0;i<window;i++){
 				sliding_window[i] = sliding_window[i+1];
@@ -303,16 +316,16 @@ void read_write_loop(FILE* f, int sfd){
 				if(sliding_window[i]==NULL){
 					sliding_window[i] = pkt_new();
 					status = create_next_pkt(sliding_window[i],
-											 f,
-											 seqnum+i,
-											 window,
-											 nb_packet);
+											f,
+											(uint8_t)(((uint8_t) (seqnum32))+i),
+											window,
+											nb_packet);
 				}else{
 					status = create_next_pkt(sliding_window[i],
-											 f,
-											 seqnum+i,
-											 window,
-											 nb_packet);
+											f,
+											(uint8_t)(((uint8_t) (seqnum32))+i),
+											window,
+											nb_packet);
 					pkt_update_timestamp(sliding_window[i]);
 				}
 			}

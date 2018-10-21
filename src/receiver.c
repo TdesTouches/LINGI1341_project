@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 10
+#define WINDOW 5
 
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
@@ -216,7 +216,7 @@ void read_write_loop(int sfd){
 		}
 
 		now = get_time();
-		if(now-action_time > 5000){ // 5 seconds
+		if(now-action_time > 5000000){ // 5 seconds
 			LOG("Timeout");
 			end_transmission = 1;
 		}

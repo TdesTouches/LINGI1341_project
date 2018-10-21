@@ -6,7 +6,7 @@
  */
 
 #include <stdio.h>
-#include <sys/timeb.h>
+#include <sys/time.h>
 
 #include "pkt.h"
 
@@ -40,9 +40,17 @@ uint32_t tot_nb_packet(FILE *f){
 
 
 uint32_t get_time(){
-	struct timeb tp;
-	ftime(&tp);
-	uint64_t ct = (uint32_t) tp.time * 1000 + (uint32_t) tp.millitm;
+	struct timeval tp;
+	gettimeofday(&tp, NULL);
+	uint64_t ct = (uint32_t) tp.tv_sec * (uint64_t)1e6 + (uint64_t) tp.tv_usec;
 	uint32_t ct_32 = ct % 4294967295;
 	return ct_32;
 }
+
+// uint8_t seqnum_increment(uint8_t seqnum){
+// 	return (seqnum+1) % 256
+// }
+
+// uint8_t seqnum_diff(uint8_t s1, uint8_t s2){
+
+// }
