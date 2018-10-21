@@ -22,6 +22,9 @@ sender :
 receiver :
 	$(CC) $(CFLAGS) $(RECEIVER_SRC) -o receiver $(LDFLAGS)
 
+test :
+	tests/simple_test.sh
+
 
 .PHONY: clean gitlog
 

@@ -10,4 +10,59 @@
 \begin{document}
 \maketitle
 
+
+\section{Introduction}
+Dans le cadre du cours LINGI1341 : \textit{Computer networks : information transfer}, il nous a été demandé de réaliser un protocole de transfer fiable basé sur des segments UDP.
+
+Ce rapport décrit l'architecture globale du projet, et réponds aux questions imposées dans le cadre du projet.
+
+\section{Architecture}
+
+\begin{itemize}
+	\item \textbf{sender.c} Implémente la fonction principale du sender.
+	\item \textbf{receiver.c} Implémente la fonction principale du receiver.
+	\item \textbf{pkt.c} Implémente toute la structure des packets, ainsi que toutes les fonctions pour manipuler ces packets.
+	\item \textbf{network.c} Implémente la connection UDP entre deux machines.
+	\item \textbf{utils.c} Contient un certain nombre de fonction utiles et qui n'avaient pas leur place dans les autres fichiers.
+	\item \textbf{fifo.c} Implémente la mémoire FIFO (\textit{first in first out}) qui va être utilisé par le receiver pour gérer les \textit{acknoledgment}
+\end{itemize}
+
+\section{Questions}
+\subsection{Que mettez-vous dans le champs Timestamp, et quelle utilisation en faites-vous?}
+Le champs timestamp contient un nombre de millisecondes. Il est calculé comme suit : 
+\begin{equation*}
+	\text{timestamp} = t_{epoch} \% (2^{32}-1)
+\end{equation*}
+ou $t_{epoch}$ correspond au temps écoulé depuis l'epoch en millisecondes et \% représente l'opération modulo.
+
+\subsection{Comment réagissez-vous à la réception de paquets PTYPE\_NACK?}
+Je ne réagis pas, j'ignore le packet.
+
+
+\subsection{Comment avez-vous choisi la valeur du retransmission timeout?}
+La valeur du \textit{retransmission timeout} est calculé via l'algorithme de \textit{Van Jacobson}. Comme décrit dans le cours (p. 159 du syllabus), il est initialisé de la manière suivante : 
+\begin{align*}
+	srtt &= rtt \\
+	rttvar &= \frac{rtt}{2} \\
+	rto &= srtt + 4 \cdot rttvar
+\end{align*}
+
+Lorsque d'autres mesures du rtt arrivent, nous pouvons mettre a jours les valeurs de rtt, srtt et rto comme suit:
+\begin{align*}
+	rttvar &= (1-\beta) \cdot rttvar + \beta \cdot (srtt - rtt) \\
+	srtt &= (1-\alpha) \cdot srtt + \alpha \cdot rtt \\
+	rto &= srtt + 4 \cdot rttvar
+\end{align*}
+
+Dans le cadre du projet, j'utilise les valeurs conseillées dans le syllabus, a savoir $\alpha = \frac{1}{8}$ et $\beta = \frac{1}{4}$. Ces valeurs particulières permettent de remplacer des \textit{floating point operations} par des \textit{bits shifts}, ce qui est beaucoup moins couteux pour le processseur.
+
+\subsection{Quelle est la partie critique de votre implémentation, affectant la vitesse de transfert?}
+Il s'agit de l'attente de l'acknowledgement.
+
+
+\subsection{Quelles sont les performances de votre protocole?}
+
+\subsection{Quelles sont les stratégies de test que vous avez utilisées?}
+Pour le moment la stratégie de test consiste a envoyer et recevoir un fichier, pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
+
 \end{document}
