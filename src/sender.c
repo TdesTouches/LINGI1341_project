@@ -162,7 +162,6 @@ void read_write_loop(FILE* f, int sfd){
 	uint32_t seqnum32 = 0;
 
 	uint32_t nb_packet = tot_nb_packet(f);
-	// pkt_t *pkt_to_send = pkt_new();
 	int i;
 
 	pkt_t *sliding_window[MAX_WINDOW_SIZE+1];
@@ -251,7 +250,7 @@ void read_write_loop(FILE* f, int sfd){
 						LOG("WTF ?");
 					}
 					// RTT update
-					if(RTT_busy && pkt_get_seqnum(pkt)==RTT_seqnum){
+					if(RTT_busy && pkt_get_seqnum(pkt)>RTT_seqnum){
 						RTT_busy = 0;
 						RTT_endTime = get_time();
 						RTT_estimation = RTT_endTime - RTT_startTime;
@@ -304,17 +303,17 @@ void read_write_loop(FILE* f, int sfd){
 				sliding_window_ok[i] = sliding_window_ok[i+1];
 				if(sliding_window[i]==NULL){
 					sliding_window[i] = pkt_new();
-					status = create_next_pkt(sliding_window[i],
-											f,
-											(uint8_t)(((uint8_t) (seqnum32))+i),
-											window,
-											nb_packet);
+					create_next_pkt(sliding_window[i],
+									f,
+									seqnum32+(uint32_t)i,
+									window,
+									nb_packet);
 				}else{
-					status = create_next_pkt(sliding_window[i],
-											f,
-											(uint8_t)(((uint8_t) (seqnum32))+i),
-											window,
-											nb_packet);
+					create_next_pkt(sliding_window[i],
+									f,
+									seqnum32+(uint32_t)i,
+									window,
+									nb_packet);
 					pkt_update_timestamp(sliding_window[i]);
 				}
 			}

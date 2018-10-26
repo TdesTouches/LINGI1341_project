@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW MAX_WINDOW_SIZE
+#define WINDOW 5
 
 uint32_t start_time;
 
