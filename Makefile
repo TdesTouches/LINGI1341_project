@@ -31,6 +31,9 @@ test_quinet:
 big_tests:
 	tests/big_test.sh
 
+perf_test:
+	tests/perf.sh
+
 tests :
 	tests/simple_test.sh
 	# tests/linksim_test.sh
