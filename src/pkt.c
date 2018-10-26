@@ -66,7 +66,10 @@ pkt_status_code pkt_decode(const char *data, const size_t len, pkt_t *pkt){
 	// cpy header
 	memcpy(pkt, data, sizeof(pkt->header));
 
-	if(len < sizeof(pkt_t)+pkt_get_length(pkt)-sizeof(char*)){
+	uint16_t crc2_len = pkt_get_length(pkt) != 0 ? 0 : sizeof(uint32_t);
+	if(len < sizeof(pkt_t)+pkt_get_length(pkt)-sizeof(char*)-crc2_len){
+		LOG("Available mem : %ld, mem usage %ld", len,
+					sizeof(pkt_t)+pkt_get_length(pkt)-sizeof(char*)-crc2_len);
 		return E_NOMEM;
 	}
 
@@ -275,6 +278,10 @@ int pkt_compare_seqnum(pkt_t* pkt1, pkt_t* pkt2){
 }
 
 int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
+	// pkt no initialized yet, do not take into account
+	if(pkt==NULL){
+		return 0;
+	}
 	uint32_t ts = pkt_get_timestamp(pkt);
 	uint32_t ct = get_time();
 	if(ts == 0){
@@ -282,7 +289,8 @@ int pkt_timestamp_outdated(pkt_t* pkt, uint32_t RTT){
 		return 1; // 99% probability that this packet is a new packet
 	}
 	if(ct - ts > RTT){
-		LOG("Timestamp outdated, resend packet");
+		LOG("Timestamp %d outdated, resend packet %d", 	pkt_get_timestamp(pkt),
+														pkt_get_seqnum(pkt));
 		return 1;
 	}
 	return 0;

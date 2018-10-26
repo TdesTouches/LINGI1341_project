@@ -23,6 +23,8 @@
 
 #define WINDOW 5
 
+uint32_t start_time;
+
 int main(int argc, char** argv){
 	// -------------------------------------------------------------------------
 	// ---------------------- parsing input arguments --------------------------
@@ -83,8 +85,12 @@ int main(int argc, char** argv){
 	// 	- int sfd
 	// output :
 	// 	- stdout // if file==NULL
-
+	uint32_t before = get_time();
+	start_time = before;
 	read_write_loop(sfd);
+	uint32_t after = get_time();
+	fprintf(stderr, "Performance : %d [us] for the entire transfer\n",
+															(after-before));
 
 	// -------------------------------------------------------------------------
 
@@ -149,13 +155,23 @@ void read_write_loop(int sfd){
 				pkt_print_info(pkt);
 			}else{
 				uint8_t sn_in = pkt_get_seqnum(pkt);
-				int index = sn_in - seqnum;
+				uint8_t index = sn_in - seqnum;
 				// pacekt received in sending window
-				if(index >= 0 && index < WINDOW){
+				if(index < WINDOW){
 					pkt_copy(sliding_window[index], pkt);
 					sliding_window_ok[index] = 1;
 				}
-				if(pkt_get_seqnum(pkt) < seqnum + WINDOW - 1){
+				if(pkt_get_seqnum(pkt) == seqnum){
+					pkt_t* pkt_ack = pkt_new();
+					pkt_create(pkt_ack, seqnum+1, WINDOW, PTYPE_ACK);
+					fifo_push(fifo_ack, pkt_ack);
+					for(i=0;i<WINDOW;i++){
+						if(sliding_window_ok[i] &&
+									!(pkt_get_length(sliding_window[i])>0)){
+							end_transmission = 1;
+						}
+					}
+				}else if(pkt_get_seqnum(pkt) < seqnum + WINDOW - 1){
 					pkt_t* pkt_ack = pkt_new();
 					pkt_create(pkt_ack, seqnum, WINDOW, PTYPE_ACK);
 					fifo_push(fifo_ack, pkt_ack);
@@ -173,7 +189,7 @@ void read_write_loop(int sfd){
 
 		// send acks
 		if(fds[1].revents == POLLOUT){
-			while(!is_fifo_empty(fifo_ack)){
+			if(!is_fifo_empty(fifo_ack)){
 				pkt_t* pkt_ack = fifo_pop(fifo_ack);
 				LOG("Sending acks %d", pkt_get_seqnum(pkt_ack));
 				pkt_update_timestamp(pkt_ack);
@@ -192,12 +208,11 @@ void read_write_loop(int sfd){
 
 		// check if packet can be printed and slide window
 		while(sliding_window_ok[0] == 1){
-			LOG("Printing packet on stdout");
+			LOG("Printing packet on stdout at %d", get_diff_time(start_time));
 			if(pkt_get_length(sliding_window[0])>0){
 				const char *payload = pkt_get_payload(sliding_window[0]);
 				size_t pay_len = (size_t) pkt_get_length(sliding_window[0]);
 				write(STDOUT_FILENO, payload, pay_len);
-				//fprintf(stdout, "%s", payload);
 
 				pkt_del(sliding_window[0]);
 				for(i=0;i<WINDOW-1;i++){
@@ -206,18 +221,18 @@ void read_write_loop(int sfd){
 				}
 				sliding_window[WINDOW-1] = pkt_new();
 				sliding_window_ok[WINDOW-1] = 0;
+				seqnum++;
 
 			}else{
 				// end_transmission = 1;
 				sliding_window_ok[0] = 0;
 			}
-			seqnum++;
 			action_time = get_time();
 		}
 
 		now = get_time();
 		if(now-action_time > 5000000){ // 5 seconds
-			LOG("Timeout");
+			ERROR("Timeout, not normal exit");
 			end_transmission = 1;
 		}
 

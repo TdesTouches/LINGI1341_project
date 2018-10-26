@@ -19,6 +19,7 @@
 
 #include "sender.h"
 
+uint32_t start_time;
 
 int main(int argc, char** argv){
 
@@ -106,9 +107,11 @@ int main(int argc, char** argv){
 	// 	- FILE* input OR stdin_fileno // if file==NULL
 	// output :
 	uint32_t before = get_time();
+	start_time = before;
 	read_write_loop(input, sfd);
 	uint32_t after = get_time();
-	fprintf(stderr, "Performance : %f\n", 9250.0/ ((double) (after-before))*1e6);
+	fprintf(stderr, "Performance : %d [us] for the entire transfer\n",
+															(after-before));
 
 	// -------------------------------------------------------------------------
 
@@ -160,7 +163,6 @@ void read_write_loop(FILE* f, int sfd){
 	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
-	int first_packet = 1;
 	// pkt_t *pkt_to_send = pkt_new();
 	int i;
 
@@ -210,8 +212,8 @@ void read_write_loop(FILE* f, int sfd){
 
 		if(fds[0].revents == POLLOUT){ // ready to write on the socket
 			for(i=0;i<window;i++){
-				if(pkt_timestamp_outdated(sliding_window[i],RTO)||first_packet){
-					first_packet = 0;
+				if(pkt_timestamp_outdated(sliding_window[i],RTO)){
+					LOG("Waiting for ack: %d or more", (uint8_t) seqnum32+1);
 					pkt_update_timestamp(sliding_window[i]);
 
 					// Starting jacobson algorithm
@@ -244,13 +246,16 @@ void read_write_loop(FILE* f, int sfd){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
 			}else{
 				if(pkt_get_type(pkt)==PTYPE_ACK){
-					LOG("Received ack %d", pkt_get_seqnum(pkt));
+					LOG("Received ack %d at %d", pkt_get_seqnum(pkt),
+													get_diff_time(start_time));
+					if(pkt_get_seqnum(pkt) < (uint8_t) seqnum32){
+						LOG("WTF ?");
+					}
 					// RTT update
 					if(RTT_busy && pkt_get_seqnum(pkt)==RTT_seqnum){
 						RTT_busy = 0;
 						RTT_endTime = get_time();
 						RTT_estimation = RTT_endTime - RTT_startTime;
-						// RTT_estimation = RTT_estimation==0 ? 1 : RTT_estimation;
 						if(RTT_estimation < 10000000){
 							rttvar = (1-RTT_beta)*rttvar
 										+ RTT_beta*abs(srtt-RTT_estimation);
@@ -262,30 +267,25 @@ void read_write_loop(FILE* f, int sfd){
 						}
 					}
 
-					// acks and new packets
-					uint8_t sn_pkt = pkt_get_seqnum(pkt);;
-					while(sn_pkt - (uint8_t) seqnum32 < 0){
-						seqnum32 = seqnum32 - 1;
-						for(i=1;i<window;i++){
-							sliding_window[i] = sliding_window[i-1];
-							sliding_window_ok[i] = sliding_window_ok[i-1];
-						}
-						create_next_pkt(sliding_window[0],
-										f,
-										(uint8_t) (seqnum32),
-										window,
-										nb_packet);
-					}
-
-					for(i=0;i<window;i++){
-						uint8_t seqnum_win = pkt_get_seqnum(sliding_window[i]);
-						uint8_t seqnum_pkt = pkt_get_seqnum(pkt);
-						if(seqnum_win==seqnum_pkt){
+					// check if packet is waited
+					uint8_t diff_seqnum = pkt_get_seqnum(pkt) - (seqnum32%256);
+					if(diff_seqnum<=window){ // check if packet is in sw
+						for(i=0;i<diff_seqnum;i++){
 							sliding_window_ok[i] = 1;
 						}
 					}
 
-					// check window
+					// for(i=0;i<window;i++){
+					// 	if(sliding_window[i]!=NULL){
+					// 		uint8_t seqnm_win=pkt_get_seqnum(sliding_window[i]);
+					// 		uint8_t seqnm_pkt=pkt_get_seqnum(pkt);
+					// 		if(seqnm_win==seqnm_pkt){
+					// 			sliding_window_ok[i] = 1;
+					// 		}
+					// 	}
+					// }
+
+					// check window size
 					uint8_t window_in = pkt_get_window(pkt);
 					if(window_in < window){
 						for(i=window_in;i<window;i++){

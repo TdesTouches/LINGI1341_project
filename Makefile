@@ -22,6 +22,12 @@ sender :
 receiver :
 	$(CC) $(CFLAGS) $(RECEIVER_SRC) -o receiver $(LDFLAGS)
 
+test_losseau:
+	tests/simple_test_losseau.sh
+
+test_quinet:
+	test/simple_test_quinet.sh
+
 tests :
 	tests/simple_test.sh
 	# tests/linksim_test.sh

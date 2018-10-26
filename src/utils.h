@@ -42,6 +42,9 @@ uint32_t file_size(FILE* f);
  */
 uint32_t tot_nb_packet(FILE *f);
 
+
 uint32_t get_time();
+
+uint32_t get_diff_time(uint32_t start_time);
 
 #endif

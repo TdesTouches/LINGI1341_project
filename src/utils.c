@@ -47,6 +47,12 @@ uint32_t get_time(){
 	return ct_32;
 }
 
+uint32_t get_diff_time(uint32_t start_time){
+	uint32_t now = get_time();
+	uint32_t diff = now - start_time;
+	return diff;
+}
+
 // uint8_t seqnum_increment(uint8_t seqnum){
 // 	return (seqnum+1) % 256
 // }
