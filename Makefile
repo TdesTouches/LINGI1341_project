@@ -26,7 +26,10 @@ test_losseau:
 	tests/simple_test_losseau.sh
 
 test_quinet:
-	test/simple_test_quinet.sh
+	tests/simple_test_quinet.sh
+
+big_tests:
+	tests/big_test.sh
 
 tests :
 	tests/simple_test.sh

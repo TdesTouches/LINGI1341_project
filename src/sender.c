@@ -160,15 +160,14 @@ void read_write_loop(FILE* f, int sfd){
 	// window information
 	uint8_t window = 1;
 	uint32_t seqnum32 = 0;
-	// pkt_t* sliding_window[MAX_WINDOW_SIZE];
 
 	uint32_t nb_packet = tot_nb_packet(f);
 	// pkt_t *pkt_to_send = pkt_new();
 	int i;
 
-	pkt_t *sliding_window[MAX_WINDOW_SIZE];
-	int sliding_window_ok[MAX_WINDOW_SIZE];
-	for(i=0;i<MAX_WINDOW_SIZE;i++){
+	pkt_t *sliding_window[MAX_WINDOW_SIZE+1];
+	int sliding_window_ok[MAX_WINDOW_SIZE+1];
+	for(i=0;i<MAX_WINDOW_SIZE+1;i++){
 		sliding_window[i] = NULL;
 		sliding_window_ok[i] = 0;
 	}
@@ -274,16 +273,6 @@ void read_write_loop(FILE* f, int sfd){
 							sliding_window_ok[i] = 1;
 						}
 					}
-
-					// for(i=0;i<window;i++){
-					// 	if(sliding_window[i]!=NULL){
-					// 		uint8_t seqnm_win=pkt_get_seqnum(sliding_window[i]);
-					// 		uint8_t seqnm_pkt=pkt_get_seqnum(pkt);
-					// 		if(seqnm_win==seqnm_pkt){
-					// 			sliding_window_ok[i] = 1;
-					// 		}
-					// 	}
-					// }
 
 					// check window size
 					uint8_t window_in = pkt_get_window(pkt);
