@@ -153,7 +153,7 @@ void read_write_loop(int sfd){
 			}else if(pkt_get_type(pkt) == PTYPE_NACK){
 				pkt_t* pkt_nack = pkt_new();
 				pkt_create(pkt_nack, pkt_get_seqnum(pkt), WINDOW, PTYPE_NACK);
-				fifo_push(fifo_ack, pkt_ack);
+				fifo_push(fifo_ack, pkt_nack);
 			}else if(pkt_get_type(pkt) != PTYPE_DATA){
 				LOG("pkt contains no data");
 				pkt_print_info(pkt);
