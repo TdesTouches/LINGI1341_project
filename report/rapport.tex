@@ -42,8 +42,9 @@ Le timestamp étant enregistré sur 32 bits, il est limité dans sa précision. 
 \subsection{Comment réagissez-vous à la réception de paquets PTYPE\_NACK?}
 Lorsque le \textit{sender} reçoit un packet de type PTYPE\_NACK, il sait que le packet n'a pas été correctement transmit au \textit{receiver}, il va donc directement renvoyer un packet sans prendre en compte la valeur du retransmission timeout. 
 
+Lorsque le \textit{receiver} reçoit un packet de type PTYPE\_NACK, il sait que le réseau a tronqué le paquet, il va donc envoyer un \textit{not acknowledgement} au lieu \textit{acknowledgment}. Anisi le \textit{sender} sera au courant de la situation et pourra renvoyer un bon packet au plus vite.
 
-\subsection{Comment avez-vous choisi la valeur du retransmission timeout?}
+\subsection{Comment avez-vous choisi la valeur du retransmission timeout? \label{sec:jacob}}
 La valeur du \textit{retransmission timeout} est calculé via l'algorithme de \textit{Van Jacobson}. Comme décrit dans le cours (p. 159 du syllabus), il est initialisé de la manière suivante : 
 \begin{align*}
 	srtt &= rtt \\
@@ -66,21 +67,58 @@ La partie la plus critique est l'attente d'un \textit{acknowledgment} lorsque qu
 
 \subsection{Quelles sont les performances de votre protocole?}
 
+Une première mesure de la performance du protocole a été faite en mesurant la vitesse de transfert en fonction de la taille de la \textit{sliding window}. Deux sets de mesures ont été réalisés, un premier utilisant le simulateur de lien proposé par le professeur, un second exécuté localement sur mon ordinateur. Chaque mesure représentée dans la figure \ref{fig:perf} est la moyenne de 20 mesures réalisées pour la \textit{sliding window} correspondante.
+
+Comme nous pouvons le voir, la présence d'un simulateur de lien basique\footnote{Il simule un lien presque sans défauts} n'affecte pas de manière significative le transfert. Par contre la taille de la \textit{sliding window} est très importante pour la vitesse de transfert. On observe un pique lorsque la sliding window fait une taille de 2.
+
 \begin{figure}[!h]
 \centering
 \begin{tikzpicture}
 \begin{axis}[
   xlabel=Window size,
-  ylabel=Performance [bytes/s]
+  ylabel=Performance (MB/s)]
 \addplot table [y=P, x=W]{perf.data};
+\addlegendentry{Using link simulator}
+\addplot table [y=P, x=W]{perf2.data};
+\addlegendentry{Not using link simulator}
 \end{axis}
 \end{tikzpicture}
 \caption{Mesure de la performance en fonction de la taille de la \textit{sliding window}}
+\label{fig:perf}
+\end{figure}
+
+Une seconde mesure de la performance du protocole vise a mesurer l'efficacité de l'alogorithme de \textit{Van Jacobson} décrit dans la section \ref{sec:jacob}. Comme on peut l'observer dans la figure \ref{fig:perf3}, le RTO\footnote{Retransmission timeout} commence a une valeur élevée, et va se mettre à jour automatiquement à chaque fois que des packets sont reçu. Il ne sera jamais stable, étant donné qu'à chaque fois que le RTO sera respecté, il diminuera, jusqu'à ce qu'il soit trop petit. A ce moment, il sera augmenté.
+
+\begin{figure}[!h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  xlabel=Time (ms),
+  ylabel=Retransmission timeout ($\mu$s)]
+%\addplot [thick, blue] table [y=P, x=W]{perf4.data};
+%\addlegendentry{Using link simulator}
+\addplot [thick, blue] table [y=P, x=W]{perf3.data};
+\end{axis}
+\end{tikzpicture}
+
+\caption{\textit{Retransmission timeout} en fonction du temps.}
+\label{fig:perf3}
 \end{figure}
 
 \subsection{Quelles sont les stratégies de test que vous avez utilisées?}
 La stratégie de test consiste a envoyer et recevoir un fichier, pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
 
 Une seconde stratégie consiste à réaliser exactement la même chose que précédement, mais en utilisant un simulateur de lien prévu à cet effet.
+
+\section{Séances d'interropérabilité}
+
+\paragraph{Groupe de Losseau :} Il a été découvert que le receiver ne renvoyait pas le numéro de séquence attendu par le sender, mais le numéro de séquence attendu diminué de 1.
+
+\paragraph{Groupe de Quinet : } Il a été découvert que la fonction du sender attendait un packet de taille trop grande pour un \textit{ack}, la fonction de décodage d'un packet renvoyait donc l'erreur E\_NOMEM. Cette erreur a été corrigée en soustrayant l'espace réservé au \textit{crc2} lorsque le payload était absant (cas d'un \textit{ack}).
+
+\paragraph{Autre groupe : } Il a été découvert que le code du sender ne prenait pas en compte l'entrée standard, et que le sender ne prenait pas en compte qu'un fichier puisse être entré en paramètre.
+
+\section{Conclusion}
+
 
 \end{document}
