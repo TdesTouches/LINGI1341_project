@@ -1,7 +1,9 @@
 #!/bin/bash
 
-valgrind ./receiver ::1 12344 1> fichier.dat 2> log_receiver.log &
-sleep 3
-valgrind ./sender -f matlab.zip ::1 12344 2> log_sender.log
-sleep 3
-diff -s fichier.dat matlab.zip
+head -c 10000000 /dev/urandom > input.dat
+# ./link_sim -p 1234 -P 12343 &
+./receiver ::1 12343 1> fichier.dat 2> log_receiver.log &
+sleep 0.5
+./sender -f input.dat ::1 12343 2> log_sender.log 1>>output.log
+# sleep 1
+diff -s fichier.dat input.dat

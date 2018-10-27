@@ -31,7 +31,7 @@ test_quinet:
 big_tests:
 	tests/big_test.sh
 
-perf_test:
+perf_test: all
 	tests/perf.sh
 
 tests :
