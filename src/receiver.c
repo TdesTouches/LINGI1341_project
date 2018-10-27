@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 31
+#define WINDOW 5
 
 uint32_t start_time;
 
@@ -35,10 +35,28 @@ int main(int argc, char** argv){
 		exit(0);
 	}
 
+	FILE *output=NULL;
 	char *host;
 	uint16_t port;
 
+	int c;
+	extern char* optarg;
 	extern int optind;
+	while((c=getopt(argc, argv, "f:")) != -1){
+		switch(c){
+			case 'f':
+				output = fopen(optarg, "wb");
+				if(output==NULL){
+					fprintf(stderr, "Cannot open file %s\n", optarg);
+					exit(-1);
+				}
+				break;
+			default:
+				fprintf(stderr, "Option not recognized\n");
+				exit(-1);
+				break;
+		}
+	}
 
 	host = argv[optind++];
 	port = (uint16_t) atoi(argv[optind++]);
@@ -87,7 +105,7 @@ int main(int argc, char** argv){
 	// 	- stdout // if file==NULL
 	uint32_t before = get_time();
 	start_time = before;
-	read_write_loop(sfd);
+	read_write_loop(sfd, output);
 	uint32_t after = get_time();
 	fprintf(stderr, "Performance : %d [us] for the entire transfer\n",
 															(after-before));
@@ -105,7 +123,7 @@ int main(int argc, char** argv){
 }
 
 
-void read_write_loop(int sfd){
+void read_write_loop(int sfd, FILE* output){
 	uint8_t seqnum = 0; // seqnum du packet dans sliding_window[0]
 
 	struct pollfd fds[2];
@@ -212,11 +230,15 @@ void read_write_loop(int sfd){
 
 		// check if packet can be printed and slide window
 		while(sliding_window_ok[0] == 1){
-			LOG("Printing packet on stdout at %d", get_diff_time(start_time));
+			LOG("Printing packet on output at %d", get_diff_time(start_time));
 			if(pkt_get_length(sliding_window[0])>0){
 				const char *payload = pkt_get_payload(sliding_window[0]);
 				size_t pay_len = (size_t) pkt_get_length(sliding_window[0]);
-				write(STDOUT_FILENO, payload, pay_len);
+				if(output==NULL){
+					write(STDOUT_FILENO, payload, pay_len);
+				}else{
+					fwrite(payload, sizeof(char), pay_len, output);
+				}
 
 				pkt_del(sliding_window[0]);
 				for(i=0;i<WINDOW-1;i++){

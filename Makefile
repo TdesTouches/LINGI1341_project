@@ -46,6 +46,7 @@ clean :
 	rm -f receiver
 	rm -f *.log
 	rm -f *.dat
+	rm -f *.tmp
 
 archive : gitlog
 	cp report/rapport.pdf rapport.pdf

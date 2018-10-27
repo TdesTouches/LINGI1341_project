@@ -34,14 +34,14 @@ int main(int argc, char** argv){
 	// 	- uint16_t port
 	// 	- FILE* input
 
-	if(argc < 5){
+	if(argc < 3){
 		fprintf(stderr, "Usage:\n");
 		fprintf(stderr, "sender <opts> [file] <hostname> <port>\n");
 		fprintf(stderr, "   -f : input file\n");
 		exit(0);
 	}
 
-	FILE *input;
+	FILE *input=NULL;
 	char *host;
 	uint16_t port;
 
@@ -70,6 +70,25 @@ int main(int argc, char** argv){
 		fprintf(stderr, "%d arguent(s) is (are) ignored\n", argc-optind);
 	}
 
+	if(input==NULL){ // then read stdin
+		FILE* std_input = NULL;
+		std_input = fopen("azertyuiop.tmp", "wb");
+		if(std_input==NULL){
+			fprintf(stderr, "Cannot open file for stdin\n");
+		}
+
+		char ch;
+		while(fread(&ch, sizeof(char), 1, stdin)){
+			fwrite(&ch, sizeof(char), 1, std_input);
+		}
+		fclose(std_input);
+
+		input = fopen("azertyuiop.tmp", "rb");
+		if(input==NULL){
+			fprintf(stderr, "Cannot open file azertyuiop.tmp\n");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	// -------------------------------------------------------------------------
 
@@ -110,8 +129,10 @@ int main(int argc, char** argv){
 	start_time = before;
 	read_write_loop(input, sfd);
 	uint32_t after = get_time();
-	fprintf(stderr, "Performance : %f for [Mbytes/s] for the entire transfer\n",
-		10000/((double)(after-before)));
+	// fprintf(stderr, "Performance : %f for [Mbytes/s] for the entire transfer
+				// (if 10000 bytes to send)\n", 10000/((double)(after-before)));
+	fprintf(stderr, "Performance : %d for [us] for the entire transfer\n",
+															(after-before));
 	// fprintf(stdout, "%f, ", 10000/((double)(after-before)));
 
 	// -------------------------------------------------------------------------
@@ -261,7 +282,7 @@ void read_write_loop(FILE* f, int sfd){
 							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
 							RTO = MIN(srtt + 4*rttvar, MAX_RTO);
 							LOG("RTO MODIFICATIONS %d", RTO);
-							fprintf(stdout, "%f %d\n", get_diff_time(start_time)*1e-3, RTO);
+							// fprintf(stdout, "%f %d\n", get_diff_time(start_time)*1e-3, RTO);
 						}else{
 							LOG("RTO exeception, should be very rare");
 						}
@@ -291,6 +312,14 @@ void read_write_loop(FILE* f, int sfd){
 					}
 
 				}else if(pkt_get_type(pkt) == PTYPE_NACK){
+					for(i=0;i<window;i++){
+						if(sliding_window[i]!=NULL){
+							if(pkt_get_seqnum(sliding_window[i]) ==
+														pkt_get_seqnum(pkt)){
+								pkt_set_timestamp(sliding_window[i], 0);
+							}
+						}
+					}
 					fprintf(stderr, "NACK received!\nTODODODODO\n");
 				}
 			}
