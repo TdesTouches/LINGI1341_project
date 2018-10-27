@@ -21,7 +21,7 @@
 
 #include "receiver.h"
 
-#define WINDOW 5
+#define WINDOW 31
 
 uint32_t start_time;
 
@@ -150,6 +150,10 @@ void read_write_loop(int sfd){
 			LOG("Receiving packet %d", pkt_get_seqnum(pkt));
 			if(status != PKT_OK){
 				fprintf(stderr, "Decoding error : %s\n", pkt_get_error(status));
+			}else if(pkt_get_type(pkt) == PTYPE_NACK){
+				pkt_t* pkt_nack = pkt_new();
+				pkt_create(pkt_nack, pkt_get_seqnum(pkt), WINDOW, PTYPE_NACK);
+				fifo_push(fifo_ack, pkt_ack);
 			}else if(pkt_get_type(pkt) != PTYPE_DATA){
 				LOG("pkt contains no data");
 				pkt_print_info(pkt);

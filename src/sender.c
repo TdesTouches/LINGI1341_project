@@ -110,8 +110,9 @@ int main(int argc, char** argv){
 	start_time = before;
 	read_write_loop(input, sfd);
 	uint32_t after = get_time();
-	fprintf(stderr, "Performance : %d [us] for the entire transfer\n",
-															(after-before));
+	fprintf(stderr, "Performance : %f for [Mbytes/s] for the entire transfer\n",
+		10000/((double)(after-before)));
+	// fprintf(stdout, "%f, ", 10000/((double)(after-before)));
 
 	// -------------------------------------------------------------------------
 
@@ -187,8 +188,8 @@ void read_write_loop(FILE* f, int sfd){
 
 
 	// Variable for computing RTO using jacobson algorithm
-	uint32_t RTO = 5000000; // rtt in microsec
-	const uint32_t MAX_RTO = 5000000;
+	uint32_t RTO = 1000000; // rtt in microsec
+	const uint32_t MAX_RTO = 200000;
 	int RTT_busy = 0; // 1 when computing rtt value
 	uint32_t RTT_estimation;
 	uint32_t RTT_startTime;
@@ -260,6 +261,7 @@ void read_write_loop(FILE* f, int sfd){
 							srtt =(1-RTT_alpha)*srtt + RTT_alpha*RTT_estimation;
 							RTO = MIN(srtt + 4*rttvar, MAX_RTO);
 							LOG("RTO MODIFICATIONS %d", RTO);
+							fprintf(stdout, "%f %d\n", get_diff_time(start_time)*1e-3, RTO);
 						}else{
 							LOG("RTO exeception, should be very rare");
 						}
