@@ -14,9 +14,9 @@
 
 
 \section{Introduction}
-Dans le cadre du cours LINGI1341 : \textit{Computer networks : information transfer}, il nous a été demandé de réaliser un protocole de transfer fiable basé sur des segments UDP.
+Dans le cadre du cours LINGI1341 : \textit{Computer networks : information transfer}, il nous a été demandé de réaliser un protocole de transfert fiable basé sur des segments UDP.
 
-Ce rapport décrit l'architecture globale du projet, et répond aux questions imposées dans le cadre du projet.
+Ce rapport décrit l'architecture globale du projet, et répond aux questions imposées dans le cadre du projet. Il finit par décrire ce que j'ai pu observer durant les séances d'interopérabilité.
 
 \section{Architecture}
 
@@ -25,13 +25,19 @@ Ce rapport décrit l'architecture globale du projet, et répond aux questions im
 	\item \textbf{receiver.c} Implémente la fonction principale du receiver.
 	\item \textbf{pkt.c} Implémente toute la structure des packets, ainsi que toutes les fonctions pour manipuler ces packets.
 	\item \textbf{network.c} Implémente la connection UDP entre deux machines.
-	\item \textbf{utils.c} Contient un certain nombre de fonction utiles et qui n'avaient pas leur place dans les autres fichiers.
-	\item \textbf{fifo.c} Implémente la mémoire FIFO (\textit{first in first out}) qui va être utilisé par le receiver pour gérer les \textit{acknoledgment}
+	\item \textbf{utils.c} Contient des petites fonctions utiles à l'exécution du programme.
+	\item \textbf{fifo.c} Implémente la mémoire FIFO (\textit{first in first out}) qui va être utilisée par le receiver pour gérer les \textit{acknoledgment}
 \end{itemize}
+
+Tous les fichier \textbf{*.c} ont un fichier \textit{header} (\textbf{*.h}) portant le même nom et décrivant les fonctions implémentées dans les \textbf{*.c}.
+
+\paragraph{Changement du à l'interopérabilité} Tous les changements liés à la séance d'interopérabilité sont décrits dans la section \ref{sec:interop}. De manière globale, aucun  changement dans la structure n'a été effectué, seulement des petites corrections de bugs.
+
+En plus des changements décrits dnas la section \ref{sec:interop}, un bug qui empêchait des fichiers de taille supérieure à $256\cdot512=131072$ d'être transférés correctement a été corrigé.
 
 \section{Questions}
 \subsection{Que mettez-vous dans le champs Timestamp, et quelle utilisation en faites-vous?}
-Le champs timestamp contient un nombre de microsecondes. Il est calculé comme suit : 
+Le champs \textit{timestamp} contient un nombre de microsecondes. Il est calculé comme suit : 
 \begin{equation*}
 	\text{timestamp} = t_{epoch} \% (2^{32}-1) [\mu s]
 \end{equation*}
@@ -45,14 +51,14 @@ Lorsque le \textit{sender} reçoit un packet de type PTYPE\_NACK, il sait que le
 Lorsque le \textit{receiver} reçoit un packet de type PTYPE\_NACK, il sait que le réseau a tronqué le paquet, il va donc envoyer un \textit{not acknowledgement} au lieu \textit{acknowledgment}. Anisi le \textit{sender} sera au courant de la situation et pourra renvoyer un bon packet au plus vite.
 
 \subsection{Comment avez-vous choisi la valeur du retransmission timeout? \label{sec:jacob}}
-La valeur du \textit{retransmission timeout} est calculé via l'algorithme de \textit{Van Jacobson}. Comme décrit dans le cours (p. 159 du syllabus), il est initialisé de la manière suivante : 
+La valeur du \textit{retransmission timeout} est calculée via l'algorithme de \textit{Van Jacobson}. Comme décrit dans le cours (p. 159 du syllabus), cette valeur est initialisée de la manière suivante : 
 \begin{align*}
 	srtt &= rtt \\
 	rttvar &= \frac{rtt}{2} \\
 	rto &= srtt + 4 \cdot rttvar
 \end{align*}
 
-Lorsque d'autres mesures du rtt arrivent, nous pouvons mettre a jours les valeurs de rtt, srtt et rto comme suit:
+Lorsque d'autres mesures du rtt arrivent, nous pouvons mettre à jours les valeurs de rtt, srtt et rto comme suit:
 \begin{align*}
 	rttvar &= (1-\beta) \cdot rttvar + \beta \cdot (srtt - rtt) \\
 	srtt &= (1-\alpha) \cdot srtt + \alpha \cdot rtt \\
@@ -62,14 +68,14 @@ Lorsque d'autres mesures du rtt arrivent, nous pouvons mettre a jours les valeur
 Dans le cadre du projet, j'utilise les valeurs conseillées dans le syllabus, a savoir $\alpha = \frac{1}{8}$ et $\beta = \frac{1}{4}$. Ces valeurs particulières permettent de remplacer des \textit{floating point operations} par des \textit{bits shifts}, ce qui est beaucoup moins couteux pour le processseur.
 
 \subsection{Quelle est la partie critique de votre implémentation, affectant la vitesse de transfert?}
-La partie la plus critique est l'attente d'un \textit{acknowledgment} lorsque qu'un packet a été perdu. Cela nous fait perdre le temps d'un \textit{retransmission timeout}. Sur un réseau local, on mesure un retransmission timeout inférieur à 1 milliseconde.
+La partie la plus critique est l'attente d'un \textit{acknowledgment} lorsque qu'un packet a été perdu. Cela nous fait perdre le temps d'un \textit{retransmission timeout}. Sur un réseau local, on mesure un \textit{retransmission timeout} inférieur à 1 milliseconde.
 
 
 \subsection{Quelles sont les performances de votre protocole?}
 
-Une première mesure de la performance du protocole a été faite en mesurant la vitesse de transfert en fonction de la taille de la \textit{sliding window}. Deux sets de mesures ont été réalisés, un premier utilisant le simulateur de lien proposé par le professeur, un second exécuté localement sur mon ordinateur. Chaque mesure représentée dans la figure \ref{fig:perf} est la moyenne de 20 mesures réalisées pour la \textit{sliding window} correspondante.
+Une première mesure de la performance du protocole a été faite en mesurant la vitesse de transfert en fonction de la taille de la \textit{sliding window}. Deux sets de mesures ont été réalisés, un premier utilisant le simulateur de lien proposé par le professeur, un second exécuté localement sur mon ordinateur. Chaque mesure représentée dans la figure \ref{fig:perf} est la moyenne de 20 mesures d'un transfert de 10000 bytes réalisées pour la \textit{sliding window} correspondante.
 
-Comme nous pouvons le voir, la présence d'un simulateur de lien basique\footnote{Il simule un lien presque sans défauts} n'affecte pas de manière significative le transfert. Par contre la taille de la \textit{sliding window} est très importante pour la vitesse de transfert. On observe un pique lorsque la sliding window fait une taille de 2.
+Comme nous pouvons le voir, la présence d'un simulateur de lien basique\footnote{Il simule un lien presque sans défauts} n'affecte pas de manière significative le transfert. Par contre la taille de la \textit{sliding window} est très importante pour la vitesse de transfert. On observe un maximum lorsque la sliding window fait une taille de 2.
 
 \begin{figure}[!h]
 \centering
@@ -87,7 +93,7 @@ Comme nous pouvons le voir, la présence d'un simulateur de lien basique\footnot
 \label{fig:perf}
 \end{figure}
 
-Une seconde mesure de la performance du protocole vise a mesurer l'efficacité de l'alogorithme de \textit{Van Jacobson} décrit dans la section \ref{sec:jacob}. Comme on peut l'observer dans la figure \ref{fig:perf3}, le RTO\footnote{Retransmission timeout} commence a une valeur élevée, et va se mettre à jour automatiquement à chaque fois que des packets sont reçu. Il ne sera jamais stable, étant donné qu'à chaque fois que le RTO sera respecté, il diminuera, jusqu'à ce qu'il soit trop petit. A ce moment, il sera augmenté.
+Une seconde mesure de la performance du protocole vise a mesurer l'efficacité de l'alogorithme de \textit{Van Jacobson} décrit dans la section \ref{sec:jacob}. Comme on peut l'observer dans la figure \ref{fig:perf3}, le RTO\footnote{Retransmission timeout} commence à une valeur élevée, et va se mettre à jour automatiquement à chaque fois que des packets sont reçus. Il ne sera jamais stable, étant donné qu'à chaque fois que le RTO sera respecté, il diminuera, jusqu'à ce qu'il soit trop petit. A ce moment, il sera augmenté.
 
 \begin{figure}[!h]
 \centering
@@ -106,19 +112,28 @@ Une seconde mesure de la performance du protocole vise a mesurer l'efficacité d
 \end{figure}
 
 \subsection{Quelles sont les stratégies de test que vous avez utilisées?}
-La stratégie de test consiste a envoyer et recevoir un fichier, pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
+La stratégie de test consiste à envoyer et recevoir un fichier localement pour ensuite comparer le fichier d'entrée avec le fichier de sortie. Si ces deux fichiers sont différents, le test échoue.
 
-Une seconde stratégie consiste à réaliser exactement la même chose que précédement, mais en utilisant un simulateur de lien prévu à cet effet.
+Un simulateur de lien peut être utilisé pour des tests plus avancés. Ce simulateur de lien génerera des erreurs et tronquera des packets sur le réseau. 
 
-\section{Séances d'interropérabilité}
+Pour ce projet, plusieurs tests ont été implémentés.
+\begin{itemize}
+	\item simple test : envoie et reçois un fichier de petite taille
+	\item gros test : envoie et reçois un fichier de grande taille ($>256\cdot512=131072$ bytes)
+	\item test d'interopérabilité : envoie et reçois un fichier (de taille variable en fonction du test) avec un \textit{receiver} (ou un \textit{sender} d'un autre groupe.
+\end{itemize}
+
+Chaqun de ces tests a été réalisé avec et sans simulateur de lien.
+
+\section{Séances d'interropérabilité \label{sec:interop}}
 
 \paragraph{Groupe de Losseau :} Il a été découvert que le receiver ne renvoyait pas le numéro de séquence attendu par le sender, mais le numéro de séquence attendu diminué de 1.
 
-\paragraph{Groupe de Quinet : } Il a été découvert que la fonction du sender attendait un packet de taille trop grande pour un \textit{ack}, la fonction de décodage d'un packet renvoyait donc l'erreur E\_NOMEM. Cette erreur a été corrigée en soustrayant l'espace réservé au \textit{crc2} lorsque le payload était absant (cas d'un \textit{ack}).
+\paragraph{Groupe de Quinet : } Il a été découvert que la fonction du sender attendait un packet de taille trop grande pour un \textit{ack}, la fonction de décodage d'un packet renvoyait donc l'erreur E\_NOMEM. Cette erreur a été corrigée en soustrayant l'espace réservé au \textit{crc2} à l'espace réservé au paquet lorsque le payload était absent (cas d'un \textit{ack}).
 
-\paragraph{Autre groupe : } Il a été découvert que le code du sender ne prenait pas en compte l'entrée standard, et que le sender ne prenait pas en compte qu'un fichier puisse être entré en paramètre.
+\paragraph{Autre groupe : } Il a été découvert que le code du sender ne prenait pas en compte l'entrée standard, et que le sender ne prenait pas en compte qu'un fichier puisse être entré en paramètre (via l'option \textbf{-f}).
 
 \section{Conclusion}
-
+Dans ce rapport, j'ai décrit l'implémantation d'un protocole de transfert basé sur des segments UDP. Ce projet m'a permis d'apprendre en détails le fonctionnement de celui-ci et d'approfondir mes connaissances du langage C. 
 
 \end{document}
